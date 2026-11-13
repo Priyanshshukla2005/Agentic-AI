@@ -12,10 +12,10 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.llm import LLMConfigError
 from app.models import BusinessProfile, LanguageCode
 from app.plan_models import BusinessPlan, PromptVersion
 from app.planner import PlanLLMError, generate_plan
-from app.llm import LLMConfigError
 from app.session_store import get_session
 
 router = APIRouter(prefix="/api/plan", tags=["plan"])

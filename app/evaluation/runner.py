@@ -127,7 +127,9 @@ def run_evaluation(
     seed: int = 42,
 ) -> dict:
     """Generate, measure, judge and report. Returns {"rows", "report_path", "csv_path", "charts"}."""
-    from app.evaluation import report as report_module  # local import: report imports this module
+    from app.evaluation import (
+        report as report_module,  # local import: report imports this module
+    )
 
     versions = versions or ALL_VERSIONS
     profiles = select_profiles(load_test_profiles(profiles_file), profile_ids, limit)
@@ -152,8 +154,8 @@ def run_evaluation(
             record = {"version": version, "profile_id": entry["id"], "language": entry["language"],
                       "edge_case": entry.get("edge_case", False)}
             try:
-                plan = with_retry(lambda: generate_plan(to_profile(entry), language=entry["language"],
-                                                        prompt_version=version), f"{version}/{entry['id']}")
+                plan = with_retry(lambda e=entry, v=version: generate_plan(to_profile(e), language=e["language"],
+                                                                           prompt_version=v), f"{version}/{entry['id']}")
                 record["plan"] = plan.model_dump(mode="json")
                 record["metrics"] = compute_metrics(plan, entry["language"], known_sources)
                 mark = "✓"
@@ -175,7 +177,7 @@ def run_evaluation(
             plan = BusinessPlan.model_validate(record["plan"])
             start = time.perf_counter()
             try:
-                scores = with_retry(lambda: judge_plan(to_profile(by_id[key[1]]), plan, record["metrics"]),
+                scores = with_retry(lambda k=key, p=plan, r=record: judge_plan(to_profile(by_id[k[1]]), p, r["metrics"]),
                                     f"judge {key[1]}")
                 record["judge"] = scores.model_dump()
                 record["judge_flat"] = scores.flat()

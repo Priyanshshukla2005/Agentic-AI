@@ -5,7 +5,12 @@ from datetime import datetime, timezone
 import pytest
 
 from app.calculator import full_financials
-from app.evaluation.metrics import compute_metrics, hallucinated_schemes, readability, structure_score
+from app.evaluation.metrics import (
+    compute_metrics,
+    hallucinated_schemes,
+    readability,
+    structure_score,
+)
 from app.models import BusinessProfile
 from app.plan_mock import VALID_PLAN, VALID_PLAN_HI
 from app.plan_models import BusinessPlan, PlanDraft, ValidationIssue, ValidationReport
