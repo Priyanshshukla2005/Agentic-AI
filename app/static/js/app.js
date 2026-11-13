@@ -1,10 +1,13 @@
 // app.js - the Business Starter web app: one state object + one render function per screen.
 //
-// Screens:  welcome (language) -> chat (intake) -> loading -> plan
+// Screens:  welcome (language) or resume -> chat (intake) -> loading -> plan
+// Phase 6: the session id is kept on the phone, so a returning user can continue their plan;
+// the checklist, the next-step card and the question box on the plan screen use the server.
 // Every screen function returns DOM built with el() (text is always inserted safely).
 
 import * as api from "./api.js";
 import { LANGUAGES, getLocale, savedLanguage, setLanguage, t } from "./i18n.js";
+import { askCard, checklistCard, guideCard, micButton } from "./plan_tools.js";
 import { el, formatInr, renderPlan } from "./plan_view.js";
 
 // ---------------------------------------------------------------------------
@@ -17,7 +20,8 @@ const LOADING_KEYS = ["loading1", "loading2", "loading3", "loading4"];
 
 const state = {
   language: "en",
-  screen: "welcome",   // welcome | chat | loading | error | plan
+  screen: "welcome",   // welcome | resume | chat | loading | error | plan
+  resume: null,        // saved session found on start-up (offered as "Continue")
   sessionId: null,
   profile: null,
   missing: [...REQUIRED_FIELDS],
@@ -46,7 +50,9 @@ function show(screen) {
 function render() {
   clearInterval(state.loadingTimer);
   ui = {};
-  const screens = { welcome: welcomeScreen, chat: chatScreen, loading: loadingScreen, error: errorScreen, plan: planScreen };
+  const screens = {
+    welcome: welcomeScreen, resume: resumeScreen, chat: chatScreen, loading: loadingScreen, error: errorScreen, plan: planScreen,
+  };
   root.replaceChildren(screens[state.screen]());
   translateStatic();
   // Move focus to the new screen's heading so keyboard and screen-reader users know it changed.
@@ -117,6 +123,7 @@ async function startChat() {
   try {
     const data = await api.createSession(state.language);
     state.sessionId = data.session_id;
+    rememberSession(state.sessionId);
     state.messages = [{ role: "agent", text: data.reply }];
     applyChatData(data);
     show("chat");
@@ -152,7 +159,7 @@ function chatScreen() {
       e.preventDefault();
       sendMessage(ui.input.value);
     },
-  }, el("label", { for: "chat-input", class: "sr-only" }, t("inputLabel")), ui.input, micButton(), ui.send);
+  }, el("label", { for: "chat-input", class: "sr-only" }, t("inputLabel")), ui.input, micButton(ui.input, state.language), ui.send);
 
   const screen = el("div", {},
     el("h1", {}, t("chatTitle")),
@@ -222,40 +229,6 @@ async function sendMessage(text, { retry = false } = {}) {
     if (ui.log) ui.log.scrollTop = ui.log.scrollHeight;
     if (ui.input && !state.isComplete) ui.input.focus({ preventScroll: true });
   }
-}
-
-/** Mic button (Web Speech API). Not rendered at all if the browser cannot do speech input. */
-function micButton() {
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) return null;
-  let recognizer = null;
-  const button = el("button", { class: "btn secondary icon-btn", type: "button", "aria-label": t("mic"), title: t("mic") }, "🎤");
-  button.addEventListener("click", () => {
-    if (recognizer) {
-      recognizer.stop();
-      return;
-    }
-    recognizer = new Recognition();
-    recognizer.lang = getLocale(state.language); // e.g. hi-IN, ta-IN
-    recognizer.interimResults = false;
-    recognizer.maxAlternatives = 1;
-    recognizer.onresult = (event) => {
-      ui.input.value = event.results[0][0].transcript;
-      ui.input.focus();
-    };
-    recognizer.onend = () => {
-      recognizer = null;
-      button.classList.remove("listening");
-      button.setAttribute("aria-label", t("mic"));
-      ui.input.placeholder = t("inputPlaceholder");
-    };
-    recognizer.onerror = () => recognizer && recognizer.stop();
-    button.classList.add("listening");
-    button.setAttribute("aria-label", t("micListening"));
-    ui.input.placeholder = t("micListening");
-    recognizer.start();
-  });
-  return button;
 }
 
 // ----- "Your details" card with an Edit button per field (PATCH /api/session/{id}/profile) -----
@@ -389,7 +362,8 @@ async function loadSample() {
 
 function planScreen() {
   const plan = state.plan;
-  const storageKey = state.sessionId ? `bs-checklist-${state.sessionId}` : `bs-checklist-sample-${state.sampleIndex}`;
+  const storageKey = `bs-checklist-sample-${state.sampleIndex}`; // samples only: own plans use the server
+  const guide = state.sessionId ? guideCard(state.sessionId) : null; // "Your next step" at the top
   return el("div", {},
     el("div", { class: "plan-head" },
       el("h1", {}, t("planTitle")),
@@ -399,8 +373,9 @@ function planScreen() {
       el("button", { class: "btn", type: "button", onclick: () => window.print() }, "⬇️ " + t("downloadPdf")),
       listenButton(plan),
     ),
-    renderPlan(plan, { t, storageKey }),
-    askCard(),
+    state.sessionId ? guide : null,
+    renderPlan(plan, { t, storageKey, checklist: state.sessionId && plan.draft ? checklistCard(state.sessionId, () => guide.refresh()) : null }),
+    state.sessionId ? askCard(state.sessionId, state.language) : askNeedsPlanCard(),
     el("div", { class: "btn-row no-print" },
       state.sessionId ? el("button", { class: "btn secondary", type: "button", onclick: () => show("chat") }, "✏️ " + t("editDetails")) : null,
       el("button", { class: "btn secondary", type: "button", onclick: startOver }, "↺ " + t("startOver")),
@@ -408,13 +383,12 @@ function planScreen() {
   );
 }
 
-/** Q&A comes in Phase 6: shown disabled with "Coming soon". */
-function askCard() {
+/** Sample plans have no session, so questions need the user's own plan. */
+function askNeedsPlanCard() {
   return el("section", { class: "card ask no-print" },
-    el("h2", {}, el("span", { class: "icon", "aria-hidden": "true" }, "💬"), t("askTitle"), " ", el("span", { class: "badge" }, t("comingSoon"))),
-    el("label", { for: "ask-input", class: "sr-only" }, t("askTitle")),
-    el("textarea", { id: "ask-input", placeholder: t("askPlaceholder"), disabled: true }),
-    el("button", { class: "btn", type: "button", disabled: true }, t("comingSoon")),
+    el("h2", {}, el("span", { class: "icon", "aria-hidden": "true" }, "💬"), t("askTitle")),
+    el("p", { class: "muted" }, t("askNeedsPlan")),
+    el("button", { class: "btn secondary", type: "button", onclick: startOver }, t("startNew")),
   );
 }
 
@@ -446,11 +420,74 @@ function listenButton(plan) {
 }
 
 function startOver() {
+  forgetSession();
   Object.assign(state, {
     sessionId: null, profile: null, missing: [...REQUIRED_FIELDS], isComplete: false,
-    messages: [], plan: null, sampleIndex: null, editing: null, error: null,
+    messages: [], plan: null, sampleIndex: null, editing: null, error: null, resume: null,
   });
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  show("welcome");
+}
+
+// ---------------------------------------------------------------------------
+// Resume: the session id is saved on the phone (Phase 6)
+// ---------------------------------------------------------------------------
+const SESSION_KEY = "bs-session";
+
+function rememberSession(id) {
+  try { localStorage.setItem(SESSION_KEY, id); } catch { /* storage blocked: no resume */ }
+}
+function forgetSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+}
+function savedSessionId() {
+  try { return localStorage.getItem(SESSION_KEY); } catch { return null; }
+}
+
+/** Put a session from the server (GET /api/session/{id}) into the app state. */
+function loadSessionIntoState(session) {
+  state.sessionId = session.session_id;
+  state.profile = session.profile;
+  state.messages = session.messages.map((m) => ({ role: m.role === "user" ? "user" : "agent", text: m.content }));
+  state.missing = REQUIRED_FIELDS.filter((f) => session.profile[f] === null || session.profile[f] === "");
+  state.isComplete = state.missing.length === 0;
+  state.plan = session.plan;
+  state.sampleIndex = null;
+}
+
+function resumeScreen() {
+  const session = state.resume;
+  const idea = session.profile.business_idea;
+  const text = session.plan ? t("resumeWithPlan", { idea }) : idea ? t("resumeChat", { idea }) : t("resumeChatEmpty");
+  return el("div", { class: "welcome" },
+    el("div", { class: "hero-icon", "aria-hidden": "true" }, "👋"),
+    el("h1", {}, t("resumeTitle")),
+    el("p", {}, text),
+    el("div", { class: "btn-row" },
+      el("button", {
+        class: "btn big", type: "button",
+        onclick: () => { loadSessionIntoState(session); show(session.plan ? "plan" : "chat"); },
+      }, session.plan ? "📋 " + t("continuePlan") : "💬 " + t("continueChat")),
+    ),
+    el("button", { class: "btn secondary big", type: "button", onclick: startOver }, "↺ " + t("startNew")),
+  );
+}
+
+/** On start-up: if this phone has a saved session that still exists, offer to continue it. */
+async function init() {
+  const id = savedSessionId();
+  if (id) {
+    try {
+      const session = await api.getSession(id);
+      setLanguage(session.profile.language);
+      state.language = session.profile.language;
+      state.resume = session;
+      show("resume");
+      return;
+    } catch (err) {
+      if (err.kind === "notFound") forgetSession(); // e.g. the database was reset
+    }
+  }
   show("welcome");
 }
 
@@ -478,7 +515,7 @@ window.addEventListener("offline", updateOnline);
 state.language = savedLanguage() || "en";
 setLanguage(state.language);
 updateOnline();
-show("welcome");
+init();
 
 // Expose state for debugging in the browser console (read it, do not change it).
 window.__businessStarter = state;

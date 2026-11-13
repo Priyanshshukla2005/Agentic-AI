@@ -253,10 +253,11 @@ export function checksCard(plan, t) {
 /**
  * Render a BusinessPlan.
  * options.t          - translate function from i18n.js
- * options.storageKey - localStorage key for checklist ticks
+ * options.storageKey - localStorage key for checklist ticks (samples without a session)
+ * options.checklist  - a ready checklist card (Phase 6: server checklist) used instead
  * Returns a DocumentFragment with the cards in the agreed order.
  */
-export function renderPlan(plan, { t, storageKey = "bs-checklist" }) {
+export function renderPlan(plan, { t, storageKey = "bs-checklist", checklist = null }) {
   const frag = document.createDocumentFragment();
 
   // plan_v1 (baseline prompt) is free text: show it as-is, no cards.
@@ -278,7 +279,7 @@ export function renderPlan(plan, { t, storageKey = "bs-checklist" }) {
     pricingCard(plan, t),
     marketingCard(plan, t),
     schemesCard(plan, t),
-    checklistCard(plan, t, storageKey),
+    checklist || checklistCard(plan, t, storageKey),
     assumptionsCard(plan, t),
   );
   if (plan.validation) frag.append(checksCard(plan, t));
