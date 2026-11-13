@@ -6,7 +6,8 @@ Run from the project folder:
     python scripts/smoke_ui.py --url http://127.0.0.1:8000    # use a server you started
 
 Phone-sized viewport (390x844). Steps: welcome -> English -> chat to the end -> plan ->
-tick a checklist step -> print view -> Hindi sample plan -> compare page,
+tick checklist steps + add one -> ask questions -> restart the server and continue the plan ->
+print view -> Hindi sample plan -> compare page,
 plus a simulated network error that must show a friendly message and a working Retry.
 Screenshots go to docs/screenshots/. Any JavaScript error in the page fails the run.
 """
@@ -34,18 +35,17 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
-def start_server() -> tuple[subprocess.Popen, str]:
-    port = free_port()
-    env = {**os.environ, "LLM_PROVIDER": "mock"}
+def start_server(port: int, db_path: Path) -> subprocess.Popen:
+    """Mock-mode server with its own SQLite file (never touches data/app.db)."""
+    env = {**os.environ, "LLM_PROVIDER": "mock", "DB_PATH": str(db_path), "SESSION_STORE": "sqlite"}
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(port)],
         cwd=BASE_DIR, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
-    url = f"http://127.0.0.1:{port}"
     for _ in range(60):
         try:
             socket.create_connection(("127.0.0.1", port), timeout=0.5).close()
-            return proc, url
+            return proc
         except OSError:
             time.sleep(0.5)
     proc.kill()
@@ -64,7 +64,8 @@ def shot(page, name: str, full: bool = True) -> None:
     print(f"  saved docs/screenshots/{name}.png")
 
 
-def run(url: str) -> None:
+def run(url: str, restart=None) -> None:
+    """restart: function that stops and starts the server again (None with --url)."""
     SHOTS.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
     with sync_playwright() as p:
@@ -133,34 +134,69 @@ def run(url: str) -> None:
         expect(page.locator(".stat .value").first).to_contain_text("₹")
         shot(page, "04_plan")
 
-        print("6. Checklist tick is remembered")
-        counter = page.locator(".card", has_text="Launch checklist").locator("p.muted").first
-        expect(counter).to_contain_text("0 of")
-        page.locator(".checklist input[type=checkbox]").first.check()
-        expect(counter).to_contain_text("1 of")
+        print("6. Next step card + server checklist")
+        guide = page.locator(".guide-card")
+        expect(guide).to_contain_text("Fix the menu")
+        counter = page.locator(".progress-row p.muted")
+        expect(counter).to_contain_text("0 of 6 done")
+        page.locator(".checklist input[type=checkbox]").nth(0).check()
+        expect(counter).to_contain_text("1 of 6 done")
+        page.locator(".checklist input[type=checkbox]").nth(1).check()
+        expect(counter).to_contain_text("2 of 6 done")
+        expect(guide).to_contain_text("You have finished 2 of 6 steps!")
+        page.locator("#new-step").fill("Buy a weighing scale")
+        page.get_by_role("button", name="➕ Add").click()
+        expect(page.locator(".checklist")).to_contain_text("Buy a weighing scale")
+        expect(counter).to_contain_text("2 of 7 done")
 
-        print("7. Print view (Download PDF)")
+        print("7. Ask questions")
+        page.locator(".ask .chip", has_text="How do I register for FSSAI?").click()
+        expect(page.locator(".ask-log .bubble.agent")).to_have_count(1)
+        expect(page.locator(".ask-log .source-link").first).to_be_visible()
+        ask_box = page.locator("#ask-input")
+        ask_box.fill("What if I sell at ₹150?")
+        ask_box.press("Enter")
+        expect(page.locator(".ask-log .bubble.agent")).to_have_count(2)
+        expect(page.locator(".ask-log .bubble.agent").last).to_contain_text("3 sales a day")
+        expect(page.locator(".ask-log .bubble-note").last).to_contain_text("calculator")
+        ask_box.fill("How do I get my first 10 customers?")
+        ask_box.press("Enter")
+        expect(page.locator(".ask-log .bubble.agent")).to_have_count(3)
+        page.locator(".ask").scroll_into_view_if_needed()
+        shot(page, "09_plan_checklist_ask")
+
+        if restart:
+            print("8. Restart the server -> Continue my plan")
+            restart()
+            page.goto(url)
+            expect(page.get_by_role("heading", name="Welcome back!")).to_be_visible()
+            shot(page, "10_resume", full=False)
+            page.get_by_role("button", name="📋 Continue my plan").click()
+            expect(page.locator(".progress-row p.muted")).to_contain_text("2 of 7 done")
+            expect(page.locator(".ask-log .bubble.agent")).to_have_count(3)
+
+        print("9. Print view (Download PDF)")
         page.emulate_media(media="print")
         page.evaluate("window.dispatchEvent(new Event('beforeprint'))")
         assert not page.get_by_role("button", name="Download PDF").is_visible(), "buttons must be hidden in print"
         shot(page, "05_plan_print")
         page.emulate_media(media="screen")
 
-        print("8. Hindi sample plan")
-        page.evaluate("localStorage.setItem('bs-language', 'hi')")
+        print("10. Hindi sample plan")
+        page.evaluate("localStorage.removeItem('bs-session'); localStorage.setItem('bs-language', 'hi')")
         page.goto(url)
         expect(page.get_by_role("heading", name="बिज़नेस स्टार्टर")).to_be_visible()
         page.get_by_role("button", name="✨ एक नमूना प्लान देखें").click()
         expect(page.get_by_role("heading", name="आपका बिज़नेस प्लान")).to_be_visible(timeout=60000)
         shot(page, "06_plan_hindi_sample")
 
-        print("9. Compare page")
+        print("11. Compare page")
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(f"{url}/compare.html")
         expect(page.locator("#sample-select option")).to_have_count(5)
         page.get_by_role("button", name="Compare").click()
         expect(page.get_by_role("heading", name="Summary")).to_be_visible(timeout=120000)
-        expect(page.locator(".compare-grid > .card")).to_have_count(4)
+        expect(page.locator(".compare-grid > .card")).to_have_count(5)
         shot(page, "07_compare_desktop", full=False)
 
         browser.close()
@@ -173,15 +209,25 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", help="use an already running server instead of starting one")
     args = parser.parse_args()
-    proc = None
-    url = args.url
-    if not url:
-        proc, url = start_server()
-    try:
-        run(url)
-    finally:
-        if proc:
-            proc.terminate()
+    if args.url:
+        run(args.url)
+        return 0
+    import tempfile
+
+    port = free_port()
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = Path(tmp) / "smoke.db"
+        server = {"proc": start_server(port, db_path)}
+
+        def restart():
+            server["proc"].terminate()
+            server["proc"].wait(timeout=10)
+            server["proc"] = start_server(port, db_path)  # same database file = data must still be there
+
+        try:
+            run(f"http://127.0.0.1:{port}", restart)
+        finally:
+            server["proc"].terminate()
     return 0
 
 
