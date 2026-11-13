@@ -12,7 +12,7 @@ from app.plan_models import PlanDraft
 from app.rag import RetrievedChunk
 
 MOCK_RAW_TEXT = (
-    "Business Plan (MOCK MODE - free-text plan_v1 output, not validated)\n"
+    "Business Plan (MOCK MODE - free text, not validated)\n"
     "Startup: stove, utensils and boxes about Rs 10,000. Price Rs 170 per meal.\n"
     "Set LLM_PROVIDER=groq or ollama in .env to get real answers."
 )
