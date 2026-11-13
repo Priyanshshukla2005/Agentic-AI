@@ -1,0 +1,19 @@
+# Development + evaluation tools:  pip install -r requirements-dev.txt
+-r requirements.txt
+
+# Tests
+pytest>=8.0
+httpx>=0.27
+
+# Phase 7 evaluation: charts and readability score
+matplotlib>=3.8
+# textstat 0.7.3 works offline (newer versions download extra data files on first use);
+# it still imports pkg_resources, which needs setuptools below 81.
+textstat==0.7.3
+setuptools<81
+
+# Linting (optional): ruff check app scripts tests
+ruff>=0.5
+
+# Browser smoke test (optional): after installing, run once:  playwright install chromium
+playwright>=1.40
