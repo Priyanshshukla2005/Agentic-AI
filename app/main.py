@@ -26,6 +26,14 @@ app = FastAPI(
     version="0.5.0",
 )
 
+# Phase 6: create the SQLite tables (data/app.db) when the server starts. Safe to run every time.
+@app.on_event("startup")
+def create_tables() -> None:
+    from app.db import init_db
+
+    init_db()
+
+
 # Allow the frontend (Phase 5) to call this API from the browser.
 app.add_middleware(
     CORSMiddleware,
