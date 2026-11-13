@@ -59,6 +59,8 @@ BANNED_PHRASES: list[tuple[str, str]] = [
 ALLOWED_PHRASES = [
     r"credit guarantee", r"without (any )?guarantee", r"no guarantee", r"bina guarantee",
     r"guarantee[- ]free", r"बिना गारंटी", r"क्रेडिट गारंटी",
+    # Disclaimers that DENY a guarantee are good: "estimates, not guarantees", "गारंटी नहीं".
+    r"not (a |any )?guarantee[sd]?", r"never guarantee[sd]?", r"guarantee nahi?n?", r"गारंटी नहीं",
 ]
 _ALLOWED_RE = re.compile("|".join(ALLOWED_PHRASES), re.IGNORECASE)
 _BANNED_RE = [(re.compile(p, re.IGNORECASE), repl) for p, repl in BANNED_PHRASES]

@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.db import init_db
 from app.llm import LLMConfigError, get_llm, load_prompt
+from app.routes.advisor import router as advisor_router
 from app.routes.checklist import router as checklist_router
 from app.routes.frontend import STATIC_DIR
 from app.routes.frontend import router as frontend_router
@@ -53,6 +54,8 @@ app.include_router(tools_router)
 app.include_router(plan_router)
 # Phase 6: launch checklist on the server (/api/checklist/...) in app/routes/checklist.py
 app.include_router(checklist_router)
+# Phase 6: Q&A advisor + next-step guide (/api/ask, /api/guide) in app/routes/advisor.py
+app.include_router(advisor_router)
 # Phase 5: the web app (GET /, /compare.html, /api/samples) + its CSS/JS files under /static
 app.include_router(frontend_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
