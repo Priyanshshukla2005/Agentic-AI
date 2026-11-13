@@ -1,6 +1,7 @@
 """Phase 4 API: business plan generation.
 
 POST /api/plan           {session_id, prompt_version?}         -> BusinessPlan (saved in the session)
+(prompt_version defaults to DEFAULT_PLAN_VERSION = plan_v5)
 GET  /api/plan/{id}                                            -> last plan of that session
 POST /api/plan/preview   {profile, language?, prompt_version?} -> BusinessPlan without a session
 POST /api/plan/compare   {profile, versions}                   -> one plan per prompt version
@@ -19,20 +20,20 @@ from app.session_store import get_session
 
 router = APIRouter(prefix="/api/plan", tags=["plan"])
 
-ALL_VERSIONS = ["plan_v1", "plan_v2", "plan_v3", "plan_v4"]
+ALL_VERSIONS = ["plan_v1", "plan_v2", "plan_v3", "plan_v4", "plan_v5"]
 
 
 # ---------- Request / response models ----------
 
 class PlanRequest(BaseModel):
     session_id: str
-    prompt_version: PromptVersion = "plan_v4"
+    prompt_version: Optional[PromptVersion] = Field(None, description="Empty = DEFAULT_PLAN_VERSION (plan_v5)")
 
 
 class PreviewRequest(BaseModel):
     profile: BusinessProfile
     language: Optional[LanguageCode] = None
-    prompt_version: PromptVersion = "plan_v4"
+    prompt_version: Optional[PromptVersion] = Field(None, description="Empty = DEFAULT_PLAN_VERSION (plan_v5)")
 
 
 class CompareRequest(BaseModel):
