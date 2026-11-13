@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 os.environ["LLM_PROVIDER"] = "mock"
+os.environ["MOCK_PLAN_VARIANT"] = "valid"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
@@ -38,3 +39,16 @@ def no_scheme_index(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "CHROMA_DIR", tmp_path / "missing_db")
     yield
     rag.reset_store()
+
+
+@pytest.fixture(autouse=True)
+def temp_database(tmp_path, monkeypatch):
+    """Every test gets its own empty SQLite file, so tests never touch data/app.db or each other."""
+    from app import session_store
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "DB_PATH", tmp_path / "test.db")
+    monkeypatch.setattr(settings, "SESSION_STORE", "sqlite")
+    session_store.reset_store()
+    yield tmp_path / "test.db"
+    session_store.reset_store()

@@ -24,6 +24,22 @@ class Settings:
 
     PROMPTS_DIR: Path = BASE_DIR / "app" / "prompts"
 
+    # --- Phase 6: persistence ---
+    # Sessions, chats, plans, checklist and Q&A live in this SQLite file (delete it to reset).
+    DB_PATH: Path = BASE_DIR / os.getenv("DB_PATH", "data/app.db")
+    # "sqlite" (default, survives restarts) or "memory" (sessions only, lost on restart).
+    SESSION_STORE: str = os.getenv("SESSION_STORE", "sqlite").strip().lower()
+
+    # --- Phase 6: plan prompt + languages ---
+    DEFAULT_PLAN_VERSION: str = os.getenv("DEFAULT_PLAN_VERSION", "plan_v5").strip()
+    # "auto" uses TRANSLATE_MODE_MAP per language; "direct" or "pivot" forces one mode for all.
+    #   direct = the LLM writes the plan in the user's language
+    #   pivot  = the LLM writes in English, then the text is translated (smaller models do better)
+    TRANSLATE_MODE: str = os.getenv("TRANSLATE_MODE", "auto").strip().lower()
+    TRANSLATE_MODE_MAP: str = os.getenv(
+        "TRANSLATE_MODE_MAP", "en:direct,hi:direct,bn:pivot,mr:pivot,ta:pivot,te:pivot,gu:pivot"
+    ).strip()
+
     # --- Phase 3: RAG (scheme documents -> vector database) ---
     DOCS_DIR: Path = BASE_DIR / "data" / "docs"
     CHROMA_DIR: Path = BASE_DIR / os.getenv("CHROMA_DIR", "chroma_db")
@@ -34,6 +50,13 @@ class Settings:
     ).strip()
     # Search results with a relevance score below this (0 to 1) are dropped as "not related".
     RAG_MIN_SCORE: float = float(os.getenv("RAG_MIN_SCORE", "0.25"))
+
+    def translate_mode(self, language: str) -> str:
+        """direct or pivot for this language (see TRANSLATE_MODE above)."""
+        if self.TRANSLATE_MODE in ("direct", "pivot"):
+            return self.TRANSLATE_MODE
+        modes = dict(pair.split(":") for pair in self.TRANSLATE_MODE_MAP.split(",") if ":" in pair)
+        return modes.get(language, "direct").strip()
 
     @property
     def model_name(self) -> str:
