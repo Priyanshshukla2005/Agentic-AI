@@ -214,10 +214,9 @@ def auto_fix(draft: PlanDraft, chunks: list[RetrievedChunk]) -> tuple[PlanDraft,
 
     def walk(value):
         if isinstance(value, str):
-            new = soften_text(value)
-            if new != value:
-                fixes.append(f"Softened promise words: '{value[:60]}' -> '{new[:60]}'")
-            return new
+            for phrase in find_banned_phrases(value):
+                fixes.append(f"Softened promise words: '{phrase}' -> '{soften_text(phrase)}'")
+            return soften_text(value)
         if isinstance(value, dict):
             return {k: walk(v) for k, v in value.items()}
         if isinstance(value, list):
