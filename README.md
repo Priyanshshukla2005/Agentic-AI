@@ -14,7 +14,8 @@ create personalized business plans, budget-based pricing and step-by-step launch
 | 3 | RAG over official scheme documents + pricing/profit calculator | ✅ Done |
 | 4 | Plan generation agent (LangGraph) + validation + repair | ✅ Done |
 | 5 | Mobile-first web app (7 languages) + prompt comparison page | ✅ Done |
-| 6-7 | Checklist on the server, Q&A, SQLite, evaluation | ⏳ Next |
+| 6 | SQLite persistence, server checklist, Q&A agent with memory, plan_v5 + language checks | ✅ Done |
+| 7 | Evaluation | ⏳ Next |
 
 ```
 ai-business-starter/
@@ -32,7 +33,12 @@ ai-business-starter/
 │   ├── plan_models.py     # Phase 4: PlanDraft, ValidationReport, BusinessPlan
 │   ├── plan_validation.py # Phase 4: rule-based checks + auto-fix (no LLM)
 │   ├── plan_mock.py       # Phase 4: fixed valid / invalid drafts for mock mode
-│   ├── planner.py         # Phase 4: LangGraph agent: retrieve -> draft -> calculate -> validate -> ...
+│   ├── planner.py         # Phase 4: LangGraph agent: retrieve -> draft -> translate -> calculate -> validate -> ...
+│   ├── db.py              # Phase 6: SQLite connection + tables (data/app.db)
+│   ├── checklist.py       # Phase 6: launch checklist stored on the server
+│   ├── advisor.py         # Phase 6: Q&A agent (ReAct + tools + memory) and next-step guide
+│   ├── language.py        # Phase 6: script detection (7 languages) + rupee number checks
+│   ├── translation.py     # Phase 6: pivot mode (English draft -> user's language, numbers kept)
 │   ├── static/            # Phase 5: the web app (plain HTML/CSS/JS, no build step)
 │   │   ├── index.html     #   app shell: welcome -> chat -> plan
 │   │   ├── compare.html   #   prompt comparison page
@@ -42,21 +48,26 @@ ai-business-starter/
 │   │   ├── frontend.py    # Phase 5: GET /, /compare.html, /api/samples
 │   │   ├── intake.py      # Phase 2: /api/session, /api/chat endpoints
 │   │   ├── tools.py       # Phase 3: /api/rag/..., /api/calculate endpoints
-│   │   └── plan.py        # Phase 4: /api/plan endpoints
+│   │   ├── plan.py        # Phase 4: /api/plan endpoints
+│   │   ├── checklist.py   # Phase 6: /api/checklist endpoints
+│   │   └── advisor.py     # Phase 6: /api/ask, /api/guide endpoints
 │   └── prompts/
 │       ├── baseline_v1.txt          # Phase 1 baseline plan prompt
 │       ├── intake_extract_v1.txt    # Phase 2: pull details out of a message (with Hinglish examples)
 │       ├── intake_question_v1.txt   # Phase 2: ask the next question in the user's language
 │       ├── intake_summary_v1.txt    # Phase 2: summary + "Shall I create your business plan?"
 │       ├── intake_templates_v1.json # Phase 2: field labels + fixed mock-mode messages (en, hi)
-│       ├── plan_v1.txt ... plan_v4.txt  # Phase 4: plan prompt versions (see table below)
+│       ├── plan_v1.txt ... plan_v5.txt  # Phase 4/6: plan prompt versions (see table below)
+│       ├── translate_v1.txt         # Phase 6: pivot-mode translation (keeps numbers + URLs)
+│       ├── qa_v1.txt, qa_summary_v1.txt, qa_guide_v1.txt, qa_templates_v1.json  # Phase 6: Q&A
 │       ├── plan_input_v1.txt        # Phase 4: profile + repair feedback (human message)
 │       └── plan_repair_v1.txt       # Phase 4: "fix these problems" feedback text
 ├── data/
 │   ├── docs/                # Phase 3: official scheme documents (.md now, add PDFs any time)
 │   └── eval/
 │       ├── rag_questions.json   # Phase 3: 12 test questions for the RAG hit-rate
-│       └── sample_profiles.json # Phase 4: 5 complete profiles for plan generation
+│       ├── sample_profiles.json # Phase 4: 5 complete profiles for plan generation
+│       └── language_report.md   # Phase 6: output of scripts/eval_language.py
 ├── docs/
 │   ├── plan_graph.md        # Phase 4: Mermaid diagram of the plan agent
 │   └── screenshots/         # Phase 5: app screenshots made by scripts/smoke_ui.py
@@ -68,6 +79,7 @@ ai-business-starter/
 │   ├── eval_rag.py          # Phase 3: hit-rate@4 of scheme search
 │   ├── generate_plan_cli.py # Phase 4: generate / compare plans in the terminal
 │   ├── smoke_ui.py          # Phase 5: clicks through the app in a headless browser, saves screenshots
+│   ├── eval_language.py     # Phase 6: plan quality per language (script match, checks, time)
 │   └── list_groq_models.py  # Shows which Groq models your key can use
 ├── tests/
 │   ├── test_intake.py       # Phase 2 tests (offline, mock mode)
@@ -76,7 +88,11 @@ ai-business-starter/
 │   ├── test_validation.py   # Phase 4: every validation rule
 │   ├── test_planner.py      # Phase 4: the whole graph (mock + fake LLM)
 │   ├── test_plan_api.py     # Phase 4: /api/plan endpoints
-│   └── test_frontend.py     # Phase 5: static files + /api/samples
+│   ├── test_frontend.py     # Phase 5: static files + /api/samples
+│   ├── test_db.py           # Phase 6: SQLite tables, restart, plan history
+│   ├── test_checklist.py    # Phase 6: checklist API + regeneration rules
+│   ├── test_advisor.py      # Phase 6: Q&A, memory, tools, fallback, guide
+│   └── test_language.py     # Phase 6: script detection, pivot retry, number checks
 ├── requirements.txt
 └── .env.example
 ```
@@ -412,7 +428,8 @@ Diagram: [docs/plan_graph.md](docs/plan_graph.md) (regenerate with `python -m ap
 | `auto_fix` | After the last round: drop invented schemes, soften promise words. Budget/price problems stay visible |
 | `finalize` | Builds the `BusinessPlan`, records timings per node, saves it in the session |
 
-`generate_plan(profile, language, prompt_version="plan_v4") -> BusinessPlan` runs the whole graph.
+`generate_plan(profile, language, prompt_version=None) -> BusinessPlan` runs the whole graph
+(`None` = `DEFAULT_PLAN_VERSION`, which is `plan_v5` since Phase 6).
 
 ### Validation rules (`app/plan_validation.py`)
 
@@ -439,7 +456,8 @@ appears in `validation.issues` and `warnings`: it is never hidden.
 | `plan_v1` | | Exactly our baseline prompt from the submission form | Free text (not validated, comparison only) |
 | `plan_v2` | v1 | Clear role, 11 numbered rules, PlanDraft JSON schema, "ask nothing, state assumptions", no profit guarantees, Class 8 words, integer rupees, fit the budget with a 10% reserve | Structured JSON |
 | `plan_v3` | v2 | 2 few-shot examples: healthy meals (Rs 20,000, Ghaziabad) and homemade pickles (Rs 5,000, Hardoi), both checked with the calculator | Structured JSON |
-| `plan_v4` | v3 | Grounding: `{scheme_context}` from RAG, "only schemes from the context, copy source_url exactly", "do not calculate totals", answer in `{language_name}` | Structured JSON (default) |
+| `plan_v4` | v3 | Grounding: `{scheme_context}` from RAG, "only schemes from the context, copy source_url exactly", "do not calculate totals", answer in `{language_name}` | Structured JSON |
+| `plan_v5` | v4 | Language guidance: everyday words, business terms explained in brackets the first time ("break-even (no profit, no loss point)"), ₹ amounts as digits in Indian format, local examples (mandi, kirana, UPI), a tone guide for each of the 7 languages | Structured JSON (**default**, Phase 6) |
 
 Placeholders: `{profile_json}`, `{scheme_context}`, `{language_name}`, `{validation_feedback}`.
 Plan calls use `PLAN_MAX_TOKENS` (default 4096) because plans are long.
@@ -448,10 +466,10 @@ Plan calls use `PLAN_MAX_TOKENS` (default 4096) because plans are long.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/api/plan` | `{"session_id": "...", "prompt_version": "plan_v4"}` | `BusinessPlan` (also saved in the session) |
+| POST | `/api/plan` | `{"session_id": "...", "prompt_version": "plan_v5"}` (version optional) | `BusinessPlan` (also saved in the session; its launch steps become the checklist) |
 | GET | `/api/plan/{session_id}` | | last plan of that session |
-| POST | `/api/plan/preview` | `{"profile": {...}, "language": "hi", "prompt_version": "plan_v4"}` | `BusinessPlan` without a session |
-| POST | `/api/plan/compare` | `{"profile": {...}, "versions": ["plan_v1", "plan_v2", "plan_v3", "plan_v4"]}` | one result per version: plan, validation, seconds |
+| POST | `/api/plan/preview` | `{"profile": {...}, "language": "hi", "prompt_version": "plan_v5"}` | `BusinessPlan` without a session |
+| POST | `/api/plan/compare` | `{"profile": {...}, "versions": ["plan_v1", "plan_v2", "plan_v3", "plan_v4", "plan_v5"]}` | one result per version: plan, validation, seconds |
 
 Errors: **404** unknown session / no plan yet · **409** profile incomplete (`detail.missing_fields` lists what is
 missing) · **422** unknown prompt version · **500** LLM not configured · **502** LLM call failed.
@@ -463,7 +481,7 @@ Every plan includes the `validation` report and the `sources` (retrieved chunks)
 ```bash
 LLM_PROVIDER=mock python scripts/generate_plan_cli.py --profile 0 --all-versions   # offline comparison
 LLM_PROVIDER=mock python scripts/generate_plan_cli.py --profile 0 --mock-variant invalid  # see repair + auto_fix
-python scripts/generate_plan_cli.py --profile 2 --version plan_v4                  # real LLM (Hindi profile)
+python scripts/generate_plan_cli.py --profile 2 --version plan_v5                  # real LLM (Hindi profile)
 ```
 
 Profiles 0-4 in `data/eval/sample_profiles.json`: meal service (Rs 20k, Ghaziabad), pickles (Rs 5k, Hardoi, hi),
@@ -556,7 +574,7 @@ In mock mode the draft is always the healthy-meal plan (`app/plan_mock.py`); set
   ],
   "warnings": [],
   "language": "en",
-  "prompt_version": "plan_v4",
+  "prompt_version": "plan_v5",
   "provider": "mock",
   "model": "mock",
   "timings": {
@@ -598,14 +616,14 @@ If it does not load, allow Python through the laptop's firewall.
 
 | Screen | What the user does | API used |
 |---|---|---|
-| 1. Welcome | Picks a language (remembered on the phone) or taps "Try a sample plan" | `GET /api/samples`, `POST /api/plan/preview` |
+| 1. Welcome | Picks a language (remembered on the phone) or taps "Try a sample plan". A returning user sees "Continue my plan" / "Start new" | `GET /api/samples`, `POST /api/plan/preview`, `GET /api/session/{id}` |
 | 2. Chat | Answers 5 short questions (typing, budget chips or the mic); sees "3 of 5 details" and can edit any detail | `POST /api/session`, `POST /api/chat`, `PATCH /api/session/{id}/profile` |
 | 3. Plan | Reads the plan cards, ticks the launch checklist, downloads a PDF, listens to the summary | `POST /api/plan` |
 | Compare | (for judges) runs plan_v1..v4 on a sample and shows issues per version | `GET /api/samples`, `POST /api/plan/compare` |
 
 Plan cards, in order: summary · startup budget (table + budget bar + warnings) · pricing & profit
 (break-even + low/normal/good month, marked "Estimates, not guaranteed") · marketing ideas · government
-schemes (with "View official source" links) · launch checklist (ticks saved on the phone) · assumptions & risks ·
+schemes (with "View official source" links) · launch checklist (saved on the server since Phase 6) · assumptions & risks ·
 "Checks we ran" (the validation report). All money numbers come from the calculator (`financials`),
 formatted Indian style (₹1,50,000).
 
@@ -616,7 +634,7 @@ Details worth showing in a demo:
 * **Download PDF**: uses the browser's print dialog with a print stylesheet (no buttons, clean cards, source URLs printed).
 * **Safety**: text from the API is always inserted as text, never as HTML.
 * **Accessibility**: labels on every input, `aria-live` chat log, visible keyboard focus, 48px tap targets.
-* **"Ask a question"** is shown as "Coming soon" (Phase 6).
+* **"Ask a question"** and **"Your next step"**: added in Phase 6 (see below).
 
 Translations live in `app/static/js/i18n.js`. English and Hindi are reviewed; Bengali, Marathi, Tamil,
 Telugu and Gujarati should be checked by native speakers.
@@ -647,6 +665,120 @@ It clicks through welcome -> chat -> edit a detail -> plan -> checklist -> print
 compare page, simulates a network error (must show "Try again"), fails on any JavaScript error and saves
 the screenshots above.
 
+## Phase 6: Persistence, checklist, Q&A and languages
+
+### Persistence (SQLite)
+
+Everything a user creates now survives a server restart. It lives in one SQLite file:
+**`data/app.db`** (set `DB_PATH` in `.env` to move it; it is in `.gitignore`).
+**To reset all data, stop the server and delete `data/app.db`**; the tables are created again on start.
+
+| Table | What is in it |
+|---|---|
+| `sessions` | language + business profile (JSON) |
+| `messages` | intake chat messages |
+| `plans` | every generated plan (history); the newest is the current one |
+| `checklist_items` | launch steps from the plan + the user's own steps, done / not done |
+| `qa_messages` | the question thread, with the sources of each answer |
+| `memory` | rolling summary of older questions (see Q&A memory below) |
+
+`app/session_store.py` keeps the same three functions as before (`create_session`, `get_session`,
+`save_session`), so the intake and planner code did not change. `SESSION_STORE=memory` switches sessions
+back to the Phase 2 in-memory dict (lost on restart); checklist and Q&A always use the SQLite file.
+Tests use a fresh temporary database file each (see `tests/conftest.py`).
+
+### Launch checklist (server)
+
+When a plan is generated for a session, its `launch_steps` become the checklist. Generating again
+replaces the plan steps but **keeps the user's own steps** and **keeps "done" for steps whose title did
+not change**.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/checklist/{session_id}` | | `items` + `progress` `{done, total, percent}` |
+| PATCH | `/api/checklist/{session_id}/{item_id}` | `{"done": true}` | updated checklist |
+| POST | `/api/checklist/{session_id}` | `{"title": "Buy a weighing scale", "detail": ""}` | updated checklist (201) |
+| DELETE | `/api/checklist/{session_id}/{item_id}` | | updated checklist; **403** for plan steps (only own steps can be deleted) |
+
+### Q&A advisor (`app/advisor.py`)
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/api/ask` | `{"session_id": "...", "question": "What if I sell at ₹150?"}` | `answer`, `sources`, `used_tools`, `next_step_hint`, `checks` |
+| GET | `/api/ask/{session_id}/history` | | the question thread (with sources) |
+| GET | `/api/guide/{session_id}` | | "Your next step" card: `next_step`, `tip`, `progress_line` ("You have finished 3 of 7 steps!") |
+
+How an answer is made:
+
+```
+question ─► mask Aadhaar/PAN/phone ─► context: profile + plan numbers + checklist (done + next step)
+                                     + memory (last 6 turns + summary) + RAG chunks for the question
+        ─► LangGraph ReAct agent (create_react_agent) with the Phase 3 tools
+             (calculator for what-if maths, scheme search) ── fails? ─► one grounded LLM call, no tools
+        ─► soften promise words (Phase 4 rule) ─► language check (retry once if wrong) ─► store in qa_messages
+```
+
+* Prompt: `app/prompts/qa_v1.txt` (answer in the user's language, ~120 words, practical steps, money maths
+  ONLY from the tools, schemes ONLY from the retrieved context with the source, no profit promises,
+  "confirm with the official office or a CA" for legal/tax details, never ask for ID numbers, steer
+  off-topic questions back).
+* `used_tools` shows which tools ran (e.g. `calculate_break_even` for "what if I sell at ₹150?").
+* **Memory design:** the last **6** turns are sent word for word. When a session has more than **10**
+  turns, all older turns are folded into a short rolling summary (`memory.summary`, written by the LLM with
+  `qa_summary_v1.txt`; in mock mode a simple truncation). So the prompt stays small however long the chat gets.
+* Mock mode answers deterministically but still uses the real calculator tools and RAG, so tests are offline.
+
+### Languages: plan_v5, direct vs pivot, and checks
+
+Our professor asked us to go beyond Hindi and English, so plans are now checked in all 7 languages.
+
+| Mode | How | Default for |
+|---|---|---|
+| `direct` | the LLM writes the plan in the user's language | English, Hindi |
+| `pivot` | the LLM writes in English, then `translate_v1.txt` translates the text fields | Bengali, Marathi, Tamil, Telugu, Gujarati |
+
+Smaller open models write better plans in English, so pivot is the default for the 5 newer languages.
+Change it with `TRANSLATE_MODE` (`auto` uses `TRANSLATE_MODE_MAP`; `direct` or `pivot` forces one mode).
+After translation, **every number, `kind`, scheme name and URL is copied back from the English draft**, so
+the translator cannot change money or links.
+
+New validation checks (blocking, so they trigger a repair):
+
+| Code | Triggered when |
+|---|---|
+| `WRONG_LANGUAGE` | under 60% of the letters are in the expected script (Devanagari for hi/mr, Bengali, Tamil, Telugu, Gujarati, Latin for en; acronyms like FSSAI and URLs are ignored). In direct mode the planner **retries once in pivot mode** before flagging |
+| `NUMBER_MISMATCH` | pivot mode: the ₹ amounts written in the translated text differ from the English draft (native digits like ३५०० are understood) |
+
+The planner graph now has two more nodes, `translate` and `switch_to_pivot` ([docs/plan_graph.md](docs/plan_graph.md)).
+Q&A answers get the same language check (one retry, then `WRONG_LANGUAGE` in `checks`).
+
+Measure it:
+
+```bash
+python scripts/eval_language.py      # 2 sample profiles x 7 languages -> data/eval/language_report.md
+```
+
+It reports script match %, WRONG_LANGUAGE / NUMBER_MISMATCH counts and time per language. Mock mode only
+has an English and a Hindi plan and cannot translate, so the other 5 languages show WRONG_LANGUAGE there;
+run it with Groq for the real numbers in the report.
+
+### Web app changes
+
+* **Resume:** the session id is kept on the phone; on the next visit the app offers "Continue my plan" or "Start new".
+* **Checklist** uses the server (the tick shows at once and is undone if saving fails). Old Phase 5 ticks
+  stored on the phone are sent to the server once. "Add my own step" input and a progress ring.
+* **"Your next step"** card at the top of the plan (`/api/guide`).
+* **"Ask a question"** thread under the plan: history, typing indicator, 🧮 note when the calculator was used,
+  "Source" links under answers, 4 suggested questions in the user's language, and the mic button.
+
+### Privacy note
+
+What is stored in `data/app.db`: the language, the business profile (idea, budget, place, skills,
+customers and optional notes), the intake chat, generated plans, the checklist, and the questions and answers.
+Nothing sensitive: Aadhaar, PAN, bank account and phone numbers are **masked before anything is stored or
+sent to the LLM**, the app never asks for them, and there are no names, logins or passwords. Data stays on
+the machine running the server; delete `data/app.db` to remove it all.
+
 ## Troubleshooting
 
 | Error | Fix |
@@ -662,7 +794,9 @@ the screenshots above.
 | `502 LLM call failed` on `/api/plan` | Groq rate limit or a model that cannot return JSON: wait, or try `GROQ_MODEL=openai/gpt-oss-20b` |
 | Phone cannot open the app | Start with `--host 0.0.0.0`, use the laptop's IP (not 127.0.0.1), same Wi-Fi, allow Python in the firewall |
 | Mic or Listen button missing | The browser has no speech support for that language (works best in Chrome on Android) |
+| Old data shows up / want a clean start | Stop the server and delete `data/app.db` |
+| Tamil/Telugu/... plan flagged `WRONG_LANGUAGE` in mock mode | Expected: mock mode cannot translate. Use Groq |
 | `ModuleNotFoundError: app` | Run commands from the project folder (the one containing `app/`) |
 
 ## Next phases
-6. Checklist, Q&A, languages · 7. Evaluation
+7. Evaluation (RAG hit-rate, plan validation pass rate per prompt version, language report with Groq, user testing)

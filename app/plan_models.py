@@ -13,7 +13,7 @@ from app.calculator import CostItem, FinancialSummary
 from app.models import BusinessProfile
 from app.rag import RetrievedChunk
 
-PromptVersion = Literal["plan_v1", "plan_v2", "plan_v3", "plan_v4"]
+PromptVersion = Literal["plan_v1", "plan_v2", "plan_v3", "plan_v4", "plan_v5"]
 
 __all__ = [
     "CostItem", "LaunchStep", "SchemeSuggestion", "PlanDraft", "ValidationIssue",
@@ -84,3 +84,5 @@ class BusinessPlan(BaseModel):
     model: str
     generated_at: datetime
     timings: dict[str, float] = Field(default_factory=dict, description="Seconds per graph node")
+    translate_mode: str = Field("direct", description="direct = written in the language; pivot = English + translation")
+    script_match: Optional[float] = Field(None, description="Share of letters in the language's script (0-1)")
