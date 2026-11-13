@@ -1,4 +1,4 @@
-"""FastAPI backend - Phase 1.
+"""FastAPI backend - Phase 1 (LLM test) + Phase 2 (intake chat).
 
 Run:  uvicorn app.main:app --reload
 Docs: http://127.0.0.1:8000/docs   (try the endpoints from your browser)
@@ -12,11 +12,12 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.llm import LLMConfigError, get_llm, load_prompt
+from app.routes.intake import router as intake_router
 
 app = FastAPI(
     title="AI Business Starter Agent",
     description="Agentic AI that helps aspiring entrepreneurs plan and launch a small business.",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 # Allow the frontend (Phase 5) to call this API from the browser.
@@ -26,6 +27,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Phase 2: intake chat endpoints (/api/session, /api/chat ...) live in app/routes/intake.py
+app.include_router(intake_router)
 
 
 # ---------- Request / response models ----------
