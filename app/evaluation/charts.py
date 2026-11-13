@@ -3,6 +3,7 @@
 Style: one hue for single-series charts, thin bars with value labels, light grid, labelled axes.
 Colours: series 1 = #2a78d6 (blue), series 2 = #eb6834 (orange) - checked for colour-blind safety.
 """
+import math
 from pathlib import Path
 from typing import Optional
 
@@ -46,7 +47,7 @@ def _style(ax, ylabel: str, title: str, ymax: Optional[float] = None):
 def _label_bars(ax, bars, fmt="{:.1f}"):
     for bar in bars:
         h = bar.get_height()
-        if h == h:  # skip NaN
+        if not math.isnan(h):  # missing values have no label
             ax.annotate(fmt.format(h), (bar.get_x() + bar.get_width() / 2, h), xytext=(0, 3),
                         textcoords="offset points", ha="center", va="bottom", fontsize=10, color=INK)
 

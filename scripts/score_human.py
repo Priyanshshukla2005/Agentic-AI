@@ -9,7 +9,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.evaluation.human import REVIEW_DIR, score_review, write_human_section  # noqa: E402
+from app.evaluation.human import (  # noqa: E402
+    REVIEW_DIR,
+    score_review,
+    write_human_section,
+)
 from app.evaluation.runner import DEFAULT_REPORT  # noqa: E402
 
 

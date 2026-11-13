@@ -7,7 +7,12 @@ from app.calculator import full_financials
 from app.models import BusinessProfile
 from app.plan_mock import VALID_PLAN
 from app.plan_models import PlanDraft
-from app.plan_validation import auto_fix, find_banned_phrases, has_blocking, validate_plan
+from app.plan_validation import (
+    auto_fix,
+    find_banned_phrases,
+    has_blocking,
+    validate_plan,
+)
 from app.planner import financial_input
 from app.rag import RetrievedChunk
 
