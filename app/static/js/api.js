@@ -67,13 +67,30 @@ export const patchProfile = (sessionId, patch) =>
   request("PATCH", `/api/session/${encodeURIComponent(sessionId)}/profile`, patch);
 
 // ---------- Phase 4: business plan ----------
-export const createPlan = (sessionId, promptVersion = "plan_v4") =>
+// promptVersion left empty = the server default (plan_v5).
+export const createPlan = (sessionId, promptVersion = undefined) =>
   request("POST", "/api/plan", { session_id: sessionId, prompt_version: promptVersion }, PLAN_TIMEOUT_MS);
 export const getPlan = (sessionId) => request("GET", `/api/plan/${encodeURIComponent(sessionId)}`);
-export const previewPlan = (profile, language, promptVersion = "plan_v4") =>
+export const previewPlan = (profile, language, promptVersion = undefined) =>
   request("POST", "/api/plan/preview", { profile, language, prompt_version: promptVersion }, PLAN_TIMEOUT_MS);
 export const comparePlans = (profile, versions, language) =>
   request("POST", "/api/plan/compare", { profile, versions, language }, PLAN_TIMEOUT_MS * 2);
+
+// ---------- Phase 6: checklist on the server ----------
+const sid = (sessionId) => encodeURIComponent(sessionId);
+export const getChecklist = (sessionId) => request("GET", `/api/checklist/${sid(sessionId)}`);
+export const setStepDone = (sessionId, itemId, done) =>
+  request("PATCH", `/api/checklist/${sid(sessionId)}/${itemId}`, { done });
+export const addStep = (sessionId, title, detail = "") =>
+  request("POST", `/api/checklist/${sid(sessionId)}`, { title, detail });
+export const deleteStep = (sessionId, itemId) => request("DELETE", `/api/checklist/${sid(sessionId)}/${itemId}`);
+
+// ---------- Phase 6: questions + next-step guide ----------
+const ASK_TIMEOUT_MS = 90000; // the agent may call tools before answering
+export const ask = (sessionId, question) =>
+  request("POST", "/api/ask", { session_id: sessionId, question }, ASK_TIMEOUT_MS);
+export const getAskHistory = (sessionId) => request("GET", `/api/ask/${sid(sessionId)}/history`);
+export const getGuide = (sessionId) => request("GET", `/api/guide/${sid(sessionId)}`, undefined, ASK_TIMEOUT_MS);
 
 // ---------- Phase 5: demo data ----------
 export const getSamples = () => request("GET", "/api/samples");
