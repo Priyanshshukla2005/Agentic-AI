@@ -1,0 +1,16 @@
+version,profile_id,language,edge_case,translate_mode,error,structure_score,budget_fit,price_above_cost,break_even_realistic,hallucinated_schemes,guarantee_phrases,language_match,issues_before_repair,llm_repairs,auto_fixes,final_passed,final_issues,latency_seconds,output_tokens_est,readability,initial_issue_codes,final_issue_codes,judge_personalisation,judge_practicality,judge_simplicity,judge_grounding,judge_completeness,judge_avg
+plan_v1,p01,en,False,direct,,0.2,,,,0,0,100.0,,,,,,5.714,47,80.5,,,1,1,2,4,2,2.0
+plan_v2,p01,en,False,direct,,1.0,True,True,True,0,0,100.0,0,0,0,True,0,0.07,400,54.6,,,5,5,5,5,5,5.0
+plan_v3,p01,en,False,direct,,1.0,True,True,True,0,0,100.0,0,0,0,True,0,0.063,400,54.6,,,5,5,5,5,5,5.0
+plan_v4,p01,en,False,direct,,1.0,True,True,True,0,0,100.0,0,0,0,True,0,0.056,400,54.6,,,5,5,5,5,5,5.0
+plan_v5,p01,en,False,direct,,1.0,True,True,True,0,0,100.0,0,0,0,True,0,0.04,400,54.6,,,4,5,4,5,5,4.6
+plan_v1,p02,hi,False,direct,,0.2,,,,0,0,0.0,,,,,,0.039,47,,,,2,1,3,4,2,2.4
+plan_v2,p02,hi,False,direct,,1.0,False,True,True,0,0,0.0,1,2,0,False,1,0.036,402,,BUDGET_OVER,BUDGET_OVER,3,2,3,5,5,3.6
+plan_v3,p02,hi,False,direct,,1.0,False,True,True,0,0,0.0,1,2,0,False,1,0.04,402,,BUDGET_OVER,BUDGET_OVER,3,2,3,5,5,3.6
+plan_v4,p02,hi,False,direct,,1.0,False,True,True,0,0,98.3,1,2,0,False,1,0.048,407,,BUDGET_OVER,BUDGET_OVER,3,2,3,5,5,3.6
+plan_v5,p02,hi,False,direct,,1.0,False,True,True,0,0,98.3,1,2,0,False,1,0.045,407,,BUDGET_OVER,BUDGET_OVER,4,2,4,5,5,4.0
+plan_v1,p03,hi,False,direct,,0.2,,,,0,0,0.0,,,,,,0.054,47,,,,1,1,2,4,2,2.0
+plan_v2,p03,hi,False,direct,,1.0,False,True,True,0,0,0.0,1,2,0,False,1,0.051,402,,BUDGET_OVER,BUDGET_OVER,4,2,4,5,5,4.0
+plan_v3,p03,hi,False,direct,,1.0,False,True,True,0,0,0.0,1,2,0,False,1,0.059,402,,BUDGET_OVER,BUDGET_OVER,3,2,3,5,5,3.6
+plan_v4,p03,hi,False,direct,,1.0,False,True,True,0,0,98.3,1,2,0,False,1,0.057,407,,BUDGET_OVER,BUDGET_OVER,4,2,4,5,5,4.0
+plan_v5,p03,hi,False,direct,,1.0,False,True,True,0,0,98.3,1,2,0,False,1,0.057,407,,BUDGET_OVER,BUDGET_OVER,4,2,4,5,5,4.0
