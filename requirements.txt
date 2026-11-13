@@ -20,3 +20,6 @@ sentence-transformers>=3.0
 langchain-text-splitters>=0.3
 pypdf>=4.0
 pyyaml>=6.0
+
+# Phase 4: plan generation agent (state graph)
+langgraph>=0.2
