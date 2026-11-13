@@ -1,0 +1,52 @@
+[
+  {
+    "language": "en",
+    "business_idea": "Healthy meal service for fitness enthusiasts",
+    "budget_inr": 20000,
+    "location": "Ghaziabad",
+    "skills": "Basic cooking",
+    "target_customers": "Gym-goers and fitness enthusiasts seeking high-protein meals",
+    "time_available": "5 hours a day",
+    "sales_channel": "Home delivery near gyms"
+  },
+  {
+    "language": "hi",
+    "business_idea": "Ghar ka bana aam aur nimbu ka achar",
+    "budget_inr": 5000,
+    "location": "Hardoi, Uttar Pradesh",
+    "skills": "Family pickle recipe",
+    "target_customers": "Local households",
+    "sales_channel": "WhatsApp orders and home delivery"
+  },
+  {
+    "language": "hi",
+    "business_idea": "Vegetable cart (sabzi ka thela)",
+    "budget_inr": 8000,
+    "location": "Lucknow",
+    "skills": "Selecting fresh vegetables and bargaining at the mandi",
+    "target_customers": "Families in nearby colonies",
+    "sales_channel": "Street cart, door to door",
+    "experience": "Helped a relative at his vegetable shop for 2 years"
+  },
+  {
+    "language": "en",
+    "business_idea": "Tailoring and boutique from home (blouses, kurtis, alterations)",
+    "budget_inr": 30000,
+    "location": "Indore",
+    "skills": "Stitching and simple embroidery",
+    "target_customers": "Women in the neighbourhood and college girls",
+    "time_available": "6 hours a day",
+    "sales_channel": "From home, Instagram and WhatsApp",
+    "extra_notes": "Already owns one basic sewing machine"
+  },
+  {
+    "language": "en",
+    "business_idea": "Handmade block-print cushion covers and bags sold online",
+    "budget_inr": 15000,
+    "location": "Jaipur",
+    "skills": "Hand block printing learnt from family artisans",
+    "target_customers": "Online buyers across India who like handmade decor",
+    "sales_channel": "Instagram and online marketplaces",
+    "experience": "Sold at 2 local craft fairs"
+  }
+]
