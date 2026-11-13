@@ -203,10 +203,13 @@ def retrieve(query: str, k: int = 4, category: Optional[str] = None) -> list[Ret
         raise ValueError("Query must not be empty.")
     store = get_store()
     search_filter = {"category": category} if category else None
-    results = store.similarity_search_with_relevance_scores(query, k=k, filter=search_filter)
+    # Chroma returns a cosine DISTANCE (0 = identical). Turn it into a similarity score
+    # (1 = identical, 0 = unrelated) that is easy to explain and to compare with RAG_MIN_SCORE.
+    results = store.similarity_search_with_score(query, k=k, filter=search_filter)
 
     chunks = []
-    for doc, score in results:
+    for doc, distance in results:
+        score = 1 - distance
         if score < settings.RAG_MIN_SCORE:
             continue
         meta = doc.metadata
