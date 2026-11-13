@@ -28,6 +28,9 @@ SEVERITY = {
     "MISSING_SECTION": "blocking",
     "BAD_STEP_COUNT": "blocking",
     "INVALID_NUMBERS": "blocking",
+    # Phase 6 language checks (added by the planner, see app/language.py)
+    "WRONG_LANGUAGE": "blocking",
+    "NUMBER_MISMATCH": "blocking",
 }
 
 # ---------------------------------------------------------------------------

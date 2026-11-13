@@ -34,7 +34,7 @@ def test_plan_for_session_and_get():
     plan = r.json()
     assert plan["validation"]["passed"] is True
     assert plan["sources"] and plan["financials"]["break_even"]["units_per_day"] == 2
-    assert plan["prompt_version"] == "plan_v4"
+    assert plan["prompt_version"] == "plan_v5"
 
     saved = client.get(f"/api/plan/{sid}")
     assert saved.status_code == 200

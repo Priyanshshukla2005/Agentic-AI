@@ -18,7 +18,8 @@ PROFILE = BusinessProfile(
 
 def test_valid_mock_plan(fake_scheme_index):
     plan = planner.generate_plan(PROFILE)
-    assert plan.prompt_version == "plan_v4" and plan.provider == "mock"
+    assert plan.prompt_version == "plan_v5" and plan.provider == "mock"  # Phase 6 default
+    assert plan.translate_mode == "direct" and plan.script_match == 1.0
     assert plan.validation.passed is True
     assert plan.validation.attempts == 1 and plan.validation.issues == []
     assert plan.warnings == []
@@ -126,12 +127,13 @@ def test_llm_repair_loop_sends_feedback(fake_scheme_index, monkeypatch):
     good = dict(VALID_PLAN, schemes=[])
     llm = use_fake_llm(monkeypatch, [json.dumps(bad), json.dumps(good)])
 
-    plan = planner.generate_plan(PROFILE, language="hi")
+    plan = planner.generate_plan(PROFILE, language="en")  # English: the fake replies are in English
     assert plan.validation.passed is True and plan.validation.attempts == 2
     assert len(llm.calls) == 2
 
     first_prompt = "\n".join(m.content for m in llm.calls[0])
-    assert "Hindi" in first_prompt               # {language_name} filled in (plan_v4)
+    assert "Write all text fields in English" in first_prompt  # {language_name} filled in (plan_v5)
+    assert "Tone guide for English" in first_prompt            # plan_v5 language rules
     assert "[1] [source:" in first_prompt        # {scheme_context} filled in
     second_prompt = "\n".join(m.content for m in llm.calls[1])
     assert "HALLUCINATED_SCHEME" in second_prompt and "PRICE_BELOW_COST" in second_prompt

@@ -1,11 +1,13 @@
 """Phase 4: the plan-generation agent, built as a LangGraph state machine.
 
-    retrieve -> draft -> calculate -> validate --passed--------------------------> finalize
+    retrieve -> draft -> translate -> calculate -> validate --passed-------------> finalize
                   ^                      |
                   |                      +--blocking issues, repairs left--> repair -+
                   +------------------------------------------------------------------+
                                          +--blocking issues, no repairs left--> auto_fix -> finalize
     (plan_v1 is free text: draft -> finalize, no calculation or validation)
+    Phase 6: translate (pivot mode) turns an English draft into the user's language; if a direct
+    draft is in the wrong language, switch_to_pivot retries once in pivot mode.
 
 Every node is a plain function: it reads the shared state and returns the keys it changed.
 Core rule: the LLM only proposes INPUT numbers; calculate() computes every total with the
@@ -31,16 +33,20 @@ from app.llm import get_plan_llm, load_prompt
 from app.models import LANGUAGES, BusinessProfile
 from app.plan_mock import MOCK_RAW_TEXT, mock_draft
 from app.plan_models import BusinessPlan, PlanDraft, ValidationIssue, ValidationReport
-from app.plan_validation import auto_fix, has_blocking, validate_plan
+from app.language import is_wrong_language, plan_texts
+from app.plan_validation import auto_fix, has_blocking, issue, validate_plan
 from app.rag import RetrievedChunk
 from app.session_store import get_session, save_session
 from app.structured import invoke_structured, message_text
+from app.translation import check_number_mismatch, translate_draft
 
 logger = logging.getLogger(__name__)
 
 MAX_REPAIRS = 2  # repair rounds after the first draft -> at most 3 LLM drafts per plan
 INPUT_PROMPT = "plan_input_v1"
 REPAIR_PROMPT = "plan_repair_v1"
+# Versions that write in the user's language; only these get language checks and translation.
+LANGUAGE_AWARE = {"plan_v4", "plan_v5"}
 SERVICE_WORDS = ["tailor", "boutique", "stitch", "silai", "repair", "salon", "parlour", "beauty",
                  "tuition", "coaching", "laundry", "service", "mehndi", "photography", "driver"]
 
@@ -57,7 +63,11 @@ class PlanState(TypedDict, total=False):
     session_id: Optional[str]
     mock_variant: str
     started_at: float
+    translate_mode: str          # "direct" or "pivot" (Phase 6)
     # filled in by the nodes
+    english_draft: Optional[PlanDraft]  # pivot mode: the draft before translation
+    language_retried: bool
+    script_match: Optional[float]
     chunks: list[RetrievedChunk]
     warnings: list[str]
     draft: Optional[PlanDraft]
@@ -126,7 +136,8 @@ def build_messages(state: PlanState):
     return prompt.format_messages(
         profile_json=json.dumps(profile.model_dump(exclude={"language"}), ensure_ascii=False, indent=2),
         scheme_context=rag.format_context(state.get("chunks", [])),
-        language_name=LANGUAGES.get(state["language"], "English"),
+        # Pivot mode: the LLM writes in English; the translate node does the rest.
+        language_name="English" if state.get("translate_mode") == "pivot" else LANGUAGES.get(state["language"], "English"),
         validation_feedback=state.get("validation_feedback", ""),
     )
 
@@ -139,7 +150,9 @@ def draft_node(state: PlanState) -> dict:
     if is_mock():
         if version == "plan_v1":
             return {"raw_text": MOCK_RAW_TEXT, "attempts": attempts}
-        return {"draft": mock_draft(state.get("mock_variant", "valid"), state.get("chunks", [])), "attempts": attempts}
+        mock_language = state["language"] if state.get("translate_mode") == "direct" and version in LANGUAGE_AWARE else "en"
+        draft = mock_draft(state.get("mock_variant", "valid"), state.get("chunks", []), mock_language)
+        return {"draft": draft, "attempts": attempts}
 
     llm = get_plan_llm()
     messages = build_messages(state)
@@ -152,7 +165,28 @@ def draft_node(state: PlanState) -> dict:
 
 
 def route_after_draft(state: PlanState) -> str:
-    return "finalize" if state["prompt_version"] == "plan_v1" else "calculate"
+    return "finalize" if state["prompt_version"] == "plan_v1" else "translate"
+
+
+# =====================================================================
+# Node 2b: translate - pivot mode only: English draft -> user's language
+# =====================================================================
+
+@timed("translate")
+def translate_node(state: PlanState) -> dict:
+    """Direct mode: nothing to do. Pivot mode: translate the text fields; numbers, URLs and
+    scheme names are copied back from the English draft (app/translation.py).
+    Mock mode cannot translate, so the English text is kept (and the language check says so)."""
+    if state.get("translate_mode") != "pivot" or state["language"] == "en":
+        return {"english_draft": None}
+    english = state["draft"]
+    if is_mock():
+        return {"english_draft": english, "draft": english}
+    try:
+        translated = translate_draft(get_plan_llm(), english, state["language"])
+    except Exception as e:
+        raise PlanLLMError(f"translation failed ({settings.LLM_PROVIDER}/{settings.model_name}): {e}") from e
+    return {"english_draft": english, "draft": translated}
 
 
 # =====================================================================
@@ -196,17 +230,49 @@ def calculate_node(state: PlanState) -> dict:
 # Node 4: validate - plain Python rules, no LLM
 # =====================================================================
 
+def run_checks(state: PlanState, draft: PlanDraft) -> tuple[list[ValidationIssue], Optional[float]]:
+    """Phase 4 rules + Phase 6 language rules. Returns (issues, script match 0-1)."""
+    issues = validate_plan(draft, state.get("financials"), state.get("chunks", []), state["profile"].budget_inr)
+    ratio = None
+    if state["prompt_version"] in LANGUAGE_AWARE:
+        wrong, ratio = is_wrong_language(plan_texts(draft), state["language"])
+        if wrong:
+            issues.append(issue(
+                "WRONG_LANGUAGE",
+                f"Only {round((ratio or 0) * 100)}% of the text is in {LANGUAGES[state['language']]}. "
+                f"Write all text in {LANGUAGES[state['language']]}.",
+            ))
+        if state.get("english_draft") is not None:
+            mismatch, message = check_number_mismatch(draft, state["english_draft"])
+            if mismatch:
+                issues.append(issue("NUMBER_MISMATCH", message))
+    return issues, ratio
+
+
 @timed("validate")
 def validate_node(state: PlanState) -> dict:
-    issues = validate_plan(state["draft"], state.get("financials"), state.get("chunks", []), state["profile"].budget_inr)
-    return {"issues": issues}
+    issues, ratio = run_checks(state, state["draft"])
+    return {"issues": issues, "script_match": ratio}
 
 
 def route_after_validate(state: PlanState) -> str:
     if not has_blocking(state["issues"]):
         return "finalize"
+    codes = {i.code for i in state["issues"]}
+    # Wrong language in direct mode: retry once by writing in English and translating.
+    if ("WRONG_LANGUAGE" in codes and state.get("translate_mode") == "direct"
+            and not state.get("language_retried") and state["language"] != "en"):
+        return "switch_to_pivot"
     repairs_done = state.get("attempts", 1) - 1
     return "repair" if repairs_done < MAX_REPAIRS else "auto_fix"
+
+
+@timed("switch_to_pivot")
+def switch_to_pivot_node(state: PlanState) -> dict:
+    """WRONG_LANGUAGE in direct mode: next draft is written in English and then translated."""
+    warnings = list(state.get("warnings", []))
+    warnings.append(f"The plan was not in {LANGUAGES[state['language']]}, so it was rewritten in English and translated.")
+    return {"translate_mode": "pivot", "language_retried": True, "validation_feedback": "", "warnings": warnings}
 
 
 # =====================================================================
@@ -229,8 +295,9 @@ def auto_fix_node(state: PlanState) -> dict:
     """Drop invented schemes and soften promise words. Budget / price problems are NOT
     changed: they stay in the report and in the plan warnings, visible to the user."""
     draft, fixes = auto_fix(state["draft"], state.get("chunks", []))
-    issues = validate_plan(draft, state.get("financials"), state.get("chunks", []), state["profile"].budget_inr)
-    return {"draft": draft, "issues": issues, "repairs_made": list(state.get("repairs_made", [])) + fixes}
+    issues, ratio = run_checks(state, draft)
+    return {"draft": draft, "issues": issues, "script_match": ratio,
+            "repairs_made": list(state.get("repairs_made", [])) + fixes}
 
 
 # =====================================================================
@@ -270,6 +337,8 @@ def finalize_node(state: PlanState) -> dict:
         model=settings.model_name,
         generated_at=datetime.now(timezone.utc),
         timings=timings,
+        translate_mode=state.get("translate_mode", "direct"),
+        script_match=state.get("script_match"),
     )
     if state.get("session_id"):
         session = get_session(state["session_id"])
@@ -290,6 +359,8 @@ def build_graph():
     graph = StateGraph(PlanState)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("draft", draft_node)
+    graph.add_node("translate", translate_node)
+    graph.add_node("switch_to_pivot", switch_to_pivot_node)
     graph.add_node("calculate", calculate_node)
     graph.add_node("validate", validate_node)
     graph.add_node("repair", repair_node)
@@ -298,11 +369,14 @@ def build_graph():
 
     graph.add_edge(START, "retrieve")
     graph.add_edge("retrieve", "draft")
-    graph.add_conditional_edges("draft", route_after_draft, {"calculate": "calculate", "finalize": "finalize"})
+    graph.add_conditional_edges("draft", route_after_draft, {"translate": "translate", "finalize": "finalize"})
+    graph.add_edge("translate", "calculate")
     graph.add_edge("calculate", "validate")
     graph.add_conditional_edges(
-        "validate", route_after_validate, {"finalize": "finalize", "repair": "repair", "auto_fix": "auto_fix"}
+        "validate", route_after_validate,
+        {"finalize": "finalize", "repair": "repair", "auto_fix": "auto_fix", "switch_to_pivot": "switch_to_pivot"},
     )
+    graph.add_edge("switch_to_pivot", "draft")
     graph.add_edge("repair", "draft")
     graph.add_edge("auto_fix", "finalize")
     graph.add_edge("finalize", END)
@@ -322,7 +396,7 @@ def get_graph():
 def generate_plan(
     profile: BusinessProfile,
     language: Optional[str] = None,
-    prompt_version: str = "plan_v4",
+    prompt_version: Optional[str] = None,
     session_id: Optional[str] = None,
     mock_variant: Optional[str] = None,
 ) -> BusinessPlan:
@@ -330,10 +404,14 @@ def generate_plan(
     If session_id is given, the plan is also saved in that session."""
     if not profile.is_complete:
         raise ValueError(f"Profile is incomplete. Missing: {', '.join(profile.missing_fields())}")
+    language = language or profile.language
+    prompt_version = prompt_version or settings.DEFAULT_PLAN_VERSION
+    mode = settings.translate_mode(language) if prompt_version in LANGUAGE_AWARE and language != "en" else "direct"
     state = get_graph().invoke({
         "profile": profile,
-        "language": language or profile.language,
+        "language": language,
         "prompt_version": prompt_version,
+        "translate_mode": mode,
         "session_id": session_id,
         "mock_variant": mock_variant or os.getenv("MOCK_PLAN_VARIANT", "valid"),
         "started_at": time.perf_counter(),
@@ -352,8 +430,10 @@ def export_mermaid(path=BASE_DIR / "docs" / "plan_graph.md") -> str:
         "| Node | What it does |\n|---|---|\n"
         "| retrieve | Searches the official scheme documents for this profile (RAG). Missing index -> warning, not a crash |\n"
         "| draft | The LLM writes a PlanDraft with INPUT numbers only (plan_v1: free text, goes straight to finalize) |\n"
+        "| translate | Pivot mode only: translates the English draft; numbers, URLs and scheme names are copied back |\n"
         "| calculate | The calculator computes every total, profit, break-even and payback |\n"
-        "| validate | Plain Python rules: budget, reserve, price, break-even, real schemes, no promises, sections |\n"
+        "| validate | Plain Python rules: budget, reserve, price, break-even, real schemes, no promises, sections, language, rupee numbers |\n"
+        "| switch_to_pivot | Draft in the wrong language (direct mode): retry once in English + translation |\n"
         "| repair | Sends the blocking issues back to the LLM as feedback (at most 2 rounds) |\n"
         "| auto_fix | After the last round: drops invented schemes and softens promise words; budget/price problems stay visible |\n"
         "| finalize | Builds the BusinessPlan, records timings and saves it in the session |\n",

@@ -1,9 +1,9 @@
 """Phase 4 check from the terminal: generate a business plan for a sample profile.
 
 Run from the project folder:
-    python scripts/generate_plan_cli.py --profile 0                    # plan_v4
+    python scripts/generate_plan_cli.py --profile 0                    # plan_v5 (default)
     python scripts/generate_plan_cli.py --profile 2 --version plan_v2
-    python scripts/generate_plan_cli.py --profile 0 --all-versions     # compare v1..v4
+    python scripts/generate_plan_cli.py --profile 0 --all-versions     # compare v1..v5
     LLM_PROVIDER=mock python scripts/generate_plan_cli.py --profile 0 --mock-variant invalid
 
 Profiles come from data/eval/sample_profiles.json (index 0-4).
@@ -22,7 +22,7 @@ from app.llm import LLMConfigError  # noqa: E402
 from app.models import BusinessProfile  # noqa: E402
 from app.planner import PlanLLMError, generate_plan  # noqa: E402
 
-VERSIONS = ["plan_v1", "plan_v2", "plan_v3", "plan_v4"]
+VERSIONS = ["plan_v1", "plan_v2", "plan_v3", "plan_v4", "plan_v5"]
 PROFILES_FILE = BASE_DIR / "data" / "eval" / "sample_profiles.json"
 
 
@@ -32,7 +32,9 @@ def line(char="-"):
 
 def print_plan(plan, seconds: float) -> None:
     line("=")
-    print(f"{plan.prompt_version} | {plan.provider}/{plan.model} | language {plan.language} | {seconds:.1f}s")
+    script = f" | script match {plan.script_match:.0%}" if plan.script_match is not None else ""
+    print(f"{plan.prompt_version} | {plan.provider}/{plan.model} | language {plan.language} "
+          f"({plan.translate_mode}){script} | {seconds:.1f}s")
     line("=")
     if plan.raw_text is not None:  # plan_v1: free text
         print(plan.raw_text)
@@ -86,8 +88,8 @@ def print_plan(plan, seconds: float) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate a business plan for a sample profile.")
     parser.add_argument("--profile", type=int, default=0, help="index in data/eval/sample_profiles.json")
-    parser.add_argument("--version", default="plan_v4", choices=VERSIONS)
-    parser.add_argument("--all-versions", action="store_true", help="run plan_v1 to plan_v4 and compare")
+    parser.add_argument("--version", default=settings.DEFAULT_PLAN_VERSION, choices=VERSIONS)
+    parser.add_argument("--all-versions", action="store_true", help="run plan_v1 to plan_v5 and compare")
     parser.add_argument("--mock-variant", default=None, choices=["valid", "invalid"], help="mock mode only")
     args = parser.parse_args()
 

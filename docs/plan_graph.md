@@ -12,6 +12,8 @@ graph TD;
 	__start__([<p>__start__</p>]):::first
 	retrieve(retrieve)
 	draft(draft)
+	translate(translate)
+	switch_to_pivot(switch_to_pivot)
 	calculate(calculate)
 	validate(validate)
 	repair(repair)
@@ -21,13 +23,16 @@ graph TD;
 	__start__ --> retrieve;
 	auto_fix --> finalize;
 	calculate --> validate;
-	draft -.-> calculate;
 	draft -.-> finalize;
+	draft -.-> translate;
 	repair --> draft;
 	retrieve --> draft;
+	switch_to_pivot --> draft;
+	translate --> calculate;
 	validate -.-> auto_fix;
 	validate -.-> finalize;
 	validate -.-> repair;
+	validate -.-> switch_to_pivot;
 	finalize --> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
@@ -38,8 +43,10 @@ graph TD;
 |---|---|
 | retrieve | Searches the official scheme documents for this profile (RAG). Missing index -> warning, not a crash |
 | draft | The LLM writes a PlanDraft with INPUT numbers only (plan_v1: free text, goes straight to finalize) |
+| translate | Pivot mode only: translates the English draft; numbers, URLs and scheme names are copied back |
 | calculate | The calculator computes every total, profit, break-even and payback |
-| validate | Plain Python rules: budget, reserve, price, break-even, real schemes, no promises, sections |
+| validate | Plain Python rules: budget, reserve, price, break-even, real schemes, no promises, sections, language, rupee numbers |
+| switch_to_pivot | Draft in the wrong language (direct mode): retry once in English + translation |
 | repair | Sends the blocking issues back to the LLM as feedback (at most 2 rounds) |
 | auto_fix | After the last round: drops invented schemes and softens promise words; budget/price problems stay visible |
 | finalize | Builds the BusinessPlan, records timings and saves it in the session |
