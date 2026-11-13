@@ -241,6 +241,24 @@ def list_sources() -> list[dict]:
     return sorted(sources.values(), key=lambda s: s["scheme"])
 
 
+def index_info(persist_dir: Optional[Path] = None) -> dict:
+    """Quick look at the index WITHOUT loading the embedding model (used by the startup log and
+    the evaluation): {"built": bool, "chunks": int, "sources": [{"scheme", "source_url"}]}."""
+    persist_dir = Path(persist_dir or settings.CHROMA_DIR)
+    if not persist_dir.exists() or not any(persist_dir.iterdir()):
+        return {"built": False, "chunks": 0, "sources": []}
+    try:
+        import chromadb
+
+        client = chromadb.PersistentClient(path=str(persist_dir), settings=chromadb.config.Settings(anonymized_telemetry=False))
+        collection = client.get_collection(settings.CHROMA_COLLECTION)
+        metadatas = collection.get(include=["metadatas"])["metadatas"]
+    except Exception:
+        return {"built": False, "chunks": 0, "sources": []}
+    sources = {m["scheme"]: {"scheme": m["scheme"], "source_url": m.get("source_url", "")} for m in metadatas}
+    return {"built": bool(metadatas), "chunks": len(metadatas), "sources": sorted(sources.values(), key=lambda x: x["scheme"])}
+
+
 # =====================================================================
 # PROFILE -> SEARCHES
 # =====================================================================
