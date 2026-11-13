@@ -16,13 +16,14 @@ from functools import lru_cache
 from typing import Optional
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.config import settings
 from app.llm import get_llm, load_prompt
 from app.models import LANGUAGES, PROFILE_FIELDS, BusinessProfile, ProfileUpdate
 from app.session_store import Message, Session, create_session, save_session
+from app.structured import invoke_structured
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +264,7 @@ def rule_based_extract(message: str, asked_field: Optional[str]) -> ProfileUpdat
 
 
 # =====================================================================
-# 2c. EXTRACT (LLM): structured output, with two fallbacks
+# 2c. EXTRACT (LLM): structured output, with fallbacks (app/structured.py)
 # =====================================================================
 
 def format_history(messages: list[Message]) -> str:
@@ -280,42 +281,16 @@ def profile_json(profile: BusinessProfile, filled_only: bool = False) -> str:
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
-def parse_first_json(text: str) -> dict:
-    """Find the first {...} block in a reply (models like to add text around JSON)."""
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"No JSON object found in: {text[:200]!r}")
-    return json.loads(match.group(0))
-
-
 def llm_extract(llm: BaseChatModel, profile: BusinessProfile, history: list[Message], message: str) -> ProfileUpdate:
-    """Ask the LLM for a ProfileUpdate. Tries 3 ways, from most to least reliable:
-    1. json_schema structured output  2. function calling  3. plain text + parse the JSON.
-    Raises if all three fail (the caller then uses the rule-based extractor).
-    """
+    """Ask the LLM for a ProfileUpdate (json_schema -> function_calling -> raw JSON, see
+    app/structured.py). Raises if all fail; the caller then uses the rule-based extractor."""
     prompt = ChatPromptTemplate.from_messages(
         [("system", load_prompt(EXTRACT_PROMPT)), ("human", "{message}")]
     )
-    values = {"profile_json": profile_json(profile), "history": format_history(history), "message": message}
-
-    for method in ("json_schema", "function_calling"):
-        try:
-            chain = prompt | llm.with_structured_output(ProfileUpdate, method=method)
-            result = chain.invoke({**values, "format_instructions": ""})
-            if isinstance(result, dict):
-                result = ProfileUpdate.model_validate(result)
-            if isinstance(result, ProfileUpdate):
-                return result
-            raise ValueError(f"Unexpected result: {result!r}")
-        except Exception as e:  # not supported by this model/provider, or bad output
-            logger.warning("Extraction with %s failed: %s", method, e)
-
-    # Last try: ask for raw JSON and dig it out of the text ourselves.
-    parser = PydanticOutputParser(pydantic_object=ProfileUpdate)
-    raw = (prompt | llm | StrOutputParser()).invoke(
-        {**values, "format_instructions": parser.get_format_instructions()}
+    messages = prompt.format_messages(
+        profile_json=profile_json(profile), history=format_history(history), message=message
     )
-    return ProfileUpdate.model_validate(parse_first_json(raw))
+    return invoke_structured(llm, messages, ProfileUpdate)
 
 
 # =====================================================================

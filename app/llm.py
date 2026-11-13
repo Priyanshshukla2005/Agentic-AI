@@ -25,6 +25,17 @@ class LLMConfigError(RuntimeError):
 
 @lru_cache(maxsize=1)
 def get_llm() -> BaseChatModel:
+    """The chat model for short calls (intake questions, Phase 1 test)."""
+    return build_llm(settings.LLM_MAX_TOKENS)
+
+
+@lru_cache(maxsize=1)
+def get_plan_llm() -> BaseChatModel:
+    """Same provider and model, with a bigger output limit for long business plans."""
+    return build_llm(settings.PLAN_MAX_TOKENS)
+
+
+def build_llm(max_tokens: int) -> BaseChatModel:
     provider = settings.LLM_PROVIDER
 
     if provider == "groq":
@@ -39,7 +50,7 @@ def get_llm() -> BaseChatModel:
             model=settings.GROQ_MODEL,
             api_key=settings.GROQ_API_KEY,
             temperature=settings.LLM_TEMPERATURE,
-            max_tokens=settings.LLM_MAX_TOKENS,
+            max_tokens=max_tokens,
             max_retries=2,
         )
 
@@ -50,7 +61,7 @@ def get_llm() -> BaseChatModel:
             model=settings.OLLAMA_MODEL,
             base_url=settings.OLLAMA_BASE_URL,
             temperature=settings.LLM_TEMPERATURE,
-            num_predict=settings.LLM_MAX_TOKENS,
+            num_predict=max_tokens,
         )
 
     if provider == "mock":
