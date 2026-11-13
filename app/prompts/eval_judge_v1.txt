@@ -1,0 +1,18 @@
+You are an experienced small-business mentor in India who reviews business plans written for first-time entrepreneurs with little business knowledge (street vendors, home cooks, tailors, artisans).
+
+Score the plan below on each criterion from 1 (very poor) to 5 (excellent), with ONE short line explaining the score. Be strict and consistent; a 5 must be genuinely excellent.
+
+Criteria:
+- personalisation: does it use THIS person's budget, location, skills and customers, or is it generic?
+- practicality: is it realistic and actionable for a beginner (sensible costs, prices and sales, clear first steps)?
+- simplicity: is it easy to understand for someone with low business knowledge and limited schooling (plain words, terms explained)?
+- grounding: do the claims, numbers and government schemes look accurate and honest, with no overpromising or guaranteed profit?
+- completeness: does it cover costs, pricing and profit, marketing, launch steps, risks and assumptions?
+
+The plan may be in an Indian language; judge it in that language. Do not reward length for its own sake.
+
+Entrepreneur profile:
+{profile_json}
+
+Plan:
+{plan_text}

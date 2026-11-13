@@ -35,7 +35,13 @@ def get_plan_llm() -> BaseChatModel:
     return build_llm(settings.PLAN_MAX_TOKENS)
 
 
-def build_llm(max_tokens: int) -> BaseChatModel:
+@lru_cache(maxsize=1)
+def get_judge_llm() -> BaseChatModel:
+    """Phase 7: the evaluation judge - JUDGE_MODEL at temperature 0 (repeatable scores)."""
+    return build_llm(2048, temperature=0.0, model=settings.JUDGE_MODEL)
+
+
+def build_llm(max_tokens: int, temperature: float | None = None, model: str | None = None) -> BaseChatModel:
     provider = settings.LLM_PROVIDER
 
     if provider == "groq":
@@ -47,9 +53,9 @@ def build_llm(max_tokens: int) -> BaseChatModel:
         from langchain_groq import ChatGroq
 
         return ChatGroq(
-            model=settings.GROQ_MODEL,
+            model=model or settings.GROQ_MODEL,
             api_key=settings.GROQ_API_KEY,
-            temperature=settings.LLM_TEMPERATURE,
+            temperature=settings.LLM_TEMPERATURE if temperature is None else temperature,
             max_tokens=max_tokens,
             max_retries=2,
         )
@@ -58,9 +64,9 @@ def build_llm(max_tokens: int) -> BaseChatModel:
         from langchain_ollama import ChatOllama
 
         return ChatOllama(
-            model=settings.OLLAMA_MODEL,
+            model=settings.OLLAMA_MODEL if model is None or provider_is_groq_model(model) else model,
             base_url=settings.OLLAMA_BASE_URL,
-            temperature=settings.LLM_TEMPERATURE,
+            temperature=settings.LLM_TEMPERATURE if temperature is None else temperature,
             num_predict=max_tokens,
         )
 
@@ -68,6 +74,12 @@ def build_llm(max_tokens: int) -> BaseChatModel:
         return FakeListChatModel(responses=[MOCK_REPLY])
 
     raise LLMConfigError(f"Unknown LLM_PROVIDER '{provider}'. Use groq, ollama or mock.")
+
+
+def provider_is_groq_model(model: str) -> bool:
+    """Groq model ids contain a "/" or "-versatile" (e.g. openai/gpt-oss-120b). With Ollama we then
+    judge with the local OLLAMA_MODEL instead."""
+    return "/" in model or "versatile" in model
 
 
 def load_prompt(name: str) -> str:
