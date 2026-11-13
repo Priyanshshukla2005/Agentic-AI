@@ -1,0 +1,7 @@
+Summarise this conversation between a first-time entrepreneur and their business guide in at most 80 words, in English. Keep: decisions made, numbers the user cares about (prices, budget, sales targets), schemes discussed, and open questions. No greetings.
+
+Earlier summary:
+{summary}
+
+Conversation to add:
+{turns}
