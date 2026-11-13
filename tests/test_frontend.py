@@ -26,7 +26,7 @@ def test_compare_page_is_served():
 
 @pytest.mark.parametrize("path", [
     "/static/js/app.js", "/static/js/api.js", "/static/js/i18n.js",
-    "/static/js/plan_view.js", "/static/js/compare.js",
+    "/static/js/plan_view.js", "/static/js/compare.js", "/static/js/plan_tools.js",
 ])
 def test_js_files_served_as_javascript(path):
     r = client.get(path)
@@ -44,7 +44,7 @@ def test_every_referenced_static_file_exists():
     """Every /static/... path used by the HTML pages and JS imports is really served."""
     html = client.get("/").text + client.get("/compare.html").text
     paths = set(re.findall(r'(/static/[\w/.-]+)', html))
-    for js in ["app.js", "compare.js", "plan_view.js"]:
+    for js in ["app.js", "compare.js", "plan_view.js", "plan_tools.js"]:
         text = client.get(f"/static/js/{js}").text
         paths |= {f"/static/js/{m}" for m in re.findall(r'from "\./([\w.]+)"', text)}
     assert paths
@@ -66,7 +66,7 @@ def test_samples_endpoint():
 
 def test_no_inner_html_with_api_text():
     """Safety: our JS never uses innerHTML (all API text goes in as text nodes)."""
-    for js in ["app.js", "plan_view.js", "compare.js", "api.js", "i18n.js"]:
+    for js in ["app.js", "plan_view.js", "plan_tools.js", "compare.js", "api.js", "i18n.js"]:
         text = client.get(f"/static/js/{js}").text
         assert not re.search(r"\.(innerHTML|outerHTML)\s*=|insertAdjacentHTML|document\.write", text), js
 
