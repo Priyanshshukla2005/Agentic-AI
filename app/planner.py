@@ -165,6 +165,7 @@ def financial_input(draft: PlanDraft, profile: BusinessProfile) -> FinancialInpu
     monthly = [c.model_copy(update={"kind": "monthly"}) for c in draft.fixed_monthly_costs]
     low, high = sorted((draft.market_price_low_inr, draft.market_price_high_inr))
     text = profile_text(profile) + " " + draft.business_summary.lower()
+    is_food = any(w in text for w in rag.FOOD_WORDS)
     return FinancialInput(
         budget_inr=profile.budget_inr,
         cost_items=startup + monthly,
@@ -175,8 +176,9 @@ def financial_input(draft: PlanDraft, profile: BusinessProfile) -> FinancialInpu
         units_per_day_low=draft.units_per_day_low,
         units_per_day_expected=draft.units_per_day_expected,
         units_per_day_high=draft.units_per_day_high,
-        is_food_business=any(w in text for w in rag.FOOD_WORDS),
-        is_service=any(w in text for w in SERVICE_WORDS),
+        is_food_business=is_food,
+        # A "meal service" sells food (goods for GST), so food wins over the word "service".
+        is_service=not is_food and any(w in text for w in SERVICE_WORDS),
     )
 
 
