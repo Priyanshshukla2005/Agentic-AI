@@ -1,0 +1,14 @@
+[
+  {"id": 1, "lang": "en", "question": "I sell vegetables on a cart, can I get a small loan?", "expected_scheme": "PM SVANidhi"},
+  {"id": 2, "lang": "hinglish", "question": "pickle banana ghar se, kaunsa license chahiye?", "expected_scheme": "FSSAI Registration"},
+  {"id": 3, "lang": "en", "question": "I need a loan of 3 lakh rupees without collateral to open a mobile repair shop", "expected_scheme": "PM Mudra Yojana"},
+  {"id": 4, "lang": "en", "question": "Is there a government subsidy on the project cost for starting a new manufacturing unit?", "expected_scheme": "PMEGP"},
+  {"id": 5, "lang": "en", "question": "I am a woman entrepreneur and want a bank loan of 50 lakh for a new factory", "expected_scheme": "Stand-Up India"},
+  {"id": 6, "lang": "en", "question": "How do I register my small business as an MSME for free?", "expected_scheme": "Udyam Registration"},
+  {"id": 7, "lang": "en", "question": "My annual sales will be 15 lakh, do I need GST registration?", "expected_scheme": "GST Registration"},
+  {"id": 8, "lang": "en", "question": "Do I need a shop act registration or municipal trade licence to open a shop?", "expected_scheme": "Trade License and Shop Act Registration"},
+  {"id": 9, "lang": "hindi", "question": "मैं ठेले पर फल बेचता हूँ, क्या मुझे सरकार से लोन मिल सकता है?", "expected_scheme": "PM SVANidhi"},
+  {"id": 10, "lang": "hinglish", "question": "Mujhe silai ki dukaan ke liye 50 hazaar ka loan chahiye, bina guarantee ke", "expected_scheme": "PM Mudra Yojana"},
+  {"id": 11, "lang": "hindi", "question": "घर से टिफिन सर्विस शुरू करनी है, खाने का लाइसेंस कैसे मिलेगा?", "expected_scheme": "FSSAI Registration"},
+  {"id": 12, "lang": "hinglish", "question": "GST registration kab zaroori hai, meri bikri 10 lakh saal ki hai", "expected_scheme": "GST Registration"}
+]
