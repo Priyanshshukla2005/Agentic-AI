@@ -146,7 +146,8 @@ def run_evaluation(
             step += 1
             path = raw_path(results_dir, version, entry["id"])
             cached = load_cached(path) if resume else None
-            if cached and cached.get("plan"):
+            # Reuse only successful results made with the SAME provider (never mix mock and real plans).
+            if cached and cached.get("plan") and cached["plan"].get("provider") == settings.LLM_PROVIDER:
                 results[(version, entry["id"])] = cached
                 print(f"[{step}/{total}] {version} / {entry['id']} cached")
                 continue

@@ -62,6 +62,19 @@ def test_resume_skips_cached_results(eval_dirs, monkeypatch):
     assert len(calls) == 1  # only the missing result is generated again
 
 
+def test_resume_never_mixes_providers(eval_dirs, monkeypatch):
+    run(eval_dirs)
+    cached_file = eval_dirs["results_dir"] / "raw" / "plan_v5" / "p01.json"
+    data = json.loads(cached_file.read_text(encoding="utf-8"))
+    data["plan"]["provider"] = "groq"  # pretend it came from another provider
+    cached_file.write_text(json.dumps(data), encoding="utf-8")
+    calls = []
+    real = runner.generate_plan
+    monkeypatch.setattr(runner, "generate_plan", lambda *a, **k: calls.append(1) or real(*a, **k))
+    run(eval_dirs, resume=True)
+    assert len(calls) == 1  # the "groq" result was regenerated in mock mode, the rest reused
+
+
 def test_errors_are_recorded_and_retried_on_resume(eval_dirs, monkeypatch):
     def broken(*a, **k):
         raise ValueError("model exploded")
