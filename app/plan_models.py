@@ -68,6 +68,9 @@ class ValidationReport(BaseModel):
     issues: list[ValidationIssue] = Field(default_factory=list)
     repairs_made: list[str] = Field(default_factory=list)
     attempts: int = Field(0, description="How many times the LLM wrote the plan")
+    initial_issue_codes: list[str] = Field(
+        default_factory=list, description="Issues found in the FIRST draft, before any repair (for evaluation)"
+    )
 
 
 class BusinessPlan(BaseModel):

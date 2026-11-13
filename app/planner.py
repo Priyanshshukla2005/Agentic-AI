@@ -29,11 +29,11 @@ from langgraph.graph import END, START, StateGraph
 from app import checklist, rag
 from app.calculator import FinancialInput, FinancialSummary, full_financials
 from app.config import BASE_DIR, settings
+from app.language import is_wrong_language, plan_texts
 from app.llm import get_plan_llm, load_prompt
 from app.models import LANGUAGES, BusinessProfile
 from app.plan_mock import MOCK_RAW_TEXT, mock_draft
 from app.plan_models import BusinessPlan, PlanDraft, ValidationIssue, ValidationReport
-from app.language import is_wrong_language, plan_texts
 from app.plan_validation import auto_fix, has_blocking, issue, validate_plan
 from app.rag import RetrievedChunk
 from app.session_store import get_session, save_session
@@ -68,6 +68,7 @@ class PlanState(TypedDict, total=False):
     english_draft: Optional[PlanDraft]  # pivot mode: the draft before translation
     language_retried: bool
     script_match: Optional[float]
+    initial_issue_codes: Optional[list[str]]
     chunks: list[RetrievedChunk]
     warnings: list[str]
     draft: Optional[PlanDraft]
@@ -252,7 +253,10 @@ def run_checks(state: PlanState, draft: PlanDraft) -> tuple[list[ValidationIssue
 @timed("validate")
 def validate_node(state: PlanState) -> dict:
     issues, ratio = run_checks(state, state["draft"])
-    return {"issues": issues, "script_match": ratio}
+    update = {"issues": issues, "script_match": ratio}
+    if state.get("initial_issue_codes") is None:  # remember what the FIRST draft got wrong
+        update["initial_issue_codes"] = [i.code for i in issues]
+    return update
 
 
 def route_after_validate(state: PlanState) -> str:
@@ -317,6 +321,7 @@ def finalize_node(state: PlanState) -> dict:
             issues=issues,
             repairs_made=state.get("repairs_made", []),
             attempts=state.get("attempts", 0),
+            initial_issue_codes=state.get("initial_issue_codes") or [],
         )
         # Problems that are still there are shown to the user, never hidden.
         warnings += [f"{i.code}: {i.message}" for i in issues]

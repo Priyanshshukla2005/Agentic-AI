@@ -3,8 +3,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.calculator import (
-    CostItem, FinancialInput, break_even, budget_summary, compliance_flags, full_financials,
-    monthly_scenarios, payback_months, suggest_price, unit_economics,
+    CostItem,
+    FinancialInput,
+    break_even,
+    budget_summary,
+    compliance_flags,
+    full_financials,
+    monthly_scenarios,
+    payback_months,
+    suggest_price,
+    unit_economics,
 )
 from app.main import app
 

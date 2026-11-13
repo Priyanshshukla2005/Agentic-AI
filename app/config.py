@@ -58,6 +58,12 @@ class Settings:
         modes = dict(pair.split(":") for pair in self.TRANSLATE_MODE_MAP.split(",") if ":" in pair)
         return modes.get(language, "direct").strip()
 
+    # --- Phase 7: evaluation ---
+    # Model used as the LLM judge (temperature 0). Default: the largest model on Groq's free tier.
+    JUDGE_MODEL: str = os.getenv("JUDGE_MODEL", "openai/gpt-oss-120b").strip()
+    EVAL_DELAY_SECONDS: float = float(os.getenv("EVAL_DELAY_SECONDS", "2"))  # pause between LLM calls
+    EVAL_MAX_RETRIES: int = int(os.getenv("EVAL_MAX_RETRIES", "5"))         # on 429 / 5xx errors
+
     @property
     def model_name(self) -> str:
         return {

@@ -4,6 +4,7 @@
 Run:  uvicorn app.main:app --reload
 Docs: http://127.0.0.1:8000/docs   (try the endpoints from your browser)
 """
+import logging
 import time
 from contextlib import asynccontextmanager
 
@@ -24,10 +25,31 @@ from app.routes.intake import router as intake_router
 from app.routes.plan import router as plan_router
 from app.routes.tools import router as tools_router
 
+
+def startup_summary() -> list[str]:
+    """Friendly startup log: what this server is configured to use."""
+    from app.rag import index_info
+
+    index = index_info()
+    rag_status = f"{index['chunks']} chunks, {len(index['sources'])} schemes" if index["built"] else \
+        "not built (run: python scripts/ingest_docs.py)"
+    return [
+        f"LLM provider : {settings.LLM_PROVIDER} ({settings.model_name})",
+        f"Scheme index : {rag_status}",
+        f"Database     : {settings.DB_PATH} ({settings.SESSION_STORE} sessions)",
+        f"Plan prompt  : {settings.DEFAULT_PLAN_VERSION} (default) | translate mode: {settings.TRANSLATE_MODE}",
+    ]
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Phase 6: create the SQLite tables (data/app.db) when the server starts. Safe every time."""
+    """Phase 6: create the SQLite tables (data/app.db) when the server starts. Safe every time.
+    Phase 7: print a short summary of the configuration."""
     init_db()
+    log = logging.getLogger("uvicorn.error")
+    log.info("Business Starter is starting")
+    for line in startup_summary():
+        log.info("  %s", line)
     yield
 
 
