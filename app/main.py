@@ -1,4 +1,5 @@
-"""FastAPI backend - Phase 1 (LLM test) + Phase 2 (intake chat) + Phase 3 (RAG + calculator).
+"""FastAPI backend - Phase 1 (LLM test) + Phase 2 (intake chat) + Phase 3 (RAG + calculator)
++ Phase 4 (plan generation).
 
 Run:  uvicorn app.main:app --reload
 Docs: http://127.0.0.1:8000/docs   (try the endpoints from your browser)
@@ -13,12 +14,13 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.llm import LLMConfigError, get_llm, load_prompt
 from app.routes.intake import router as intake_router
+from app.routes.plan import router as plan_router
 from app.routes.tools import router as tools_router
 
 app = FastAPI(
     title="AI Business Starter Agent",
     description="Agentic AI that helps aspiring entrepreneurs plan and launch a small business.",
-    version="0.3.0",
+    version="0.4.0",
 )
 
 # Allow the frontend (Phase 5) to call this API from the browser.
@@ -33,6 +35,8 @@ app.add_middleware(
 app.include_router(intake_router)
 # Phase 3: scheme search + calculator endpoints (/api/rag/..., /api/calculate) in app/routes/tools.py
 app.include_router(tools_router)
+# Phase 4: business plan endpoints (/api/plan...) in app/routes/plan.py
+app.include_router(plan_router)
 
 
 # ---------- Request / response models ----------

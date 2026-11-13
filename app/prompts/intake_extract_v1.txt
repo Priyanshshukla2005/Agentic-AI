@@ -35,4 +35,3 @@ Current profile (what we already know):
 
 Recent conversation:
 {history}
-{format_instructions}

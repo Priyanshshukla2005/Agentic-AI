@@ -1,0 +1,4 @@
+Business profile (JSON):
+{profile_json}
+
+{validation_feedback}Write the business plan now.

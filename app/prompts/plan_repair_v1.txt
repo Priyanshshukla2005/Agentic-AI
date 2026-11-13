@@ -1,0 +1,3 @@
+Your previous plan had these problems. Fix ALL of them and return the complete plan again in the same format:
+{issues}
+
