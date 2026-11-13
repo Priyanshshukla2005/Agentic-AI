@@ -1,0 +1,83 @@
+{
+  "fields": {
+    "business_idea": {
+      "label": "the business idea (what they want to sell or do)",
+      "hint": "Everything else in the plan depends on it.",
+      "example": "I want to sell homemade pickles"
+    },
+    "budget_inr": {
+      "label": "the budget (how much money they can put in, in rupees)",
+      "hint": "So the plan only suggests things they can afford.",
+      "example": "20,000 rupees"
+    },
+    "location": {
+      "label": "the location (city, town or village where they will run the business)",
+      "hint": "Prices, customers and rules change from place to place.",
+      "example": "Indore"
+    },
+    "skills": {
+      "label": "their skills (what they already know how to do well)",
+      "hint": "A business that uses their own skills is easier to start.",
+      "example": "I cook tasty food"
+    },
+    "target_customers": {
+      "label": "the target customers (who will buy from them)",
+      "hint": "Knowing the buyers helps with price and where to sell.",
+      "example": "office workers near my area"
+    }
+  },
+  "mock": {
+    "en": {
+      "greeting": "Namaste! I will help you plan your business, one small question at a time.",
+      "ack": "Got it, thank you!",
+      "off_topic": "Good question! I will cover it in your business plan.",
+      "privacy": "Please do not share Aadhaar, PAN, bank or phone numbers. I don't need them, and I did not save them.",
+      "questions": {
+        "business_idea": "What business do you want to start? (Example: \"I want to sell homemade pickles\")",
+        "budget_inr": "How much money can you put into this business? (Example: \"20,000 rupees\" or \"1 lakh\")",
+        "location": "Which city, town or village will you run it in? (Example: \"Indore\")",
+        "skills": "What are you good at, or what do you know how to do? (Example: \"I cook tasty food\")",
+        "target_customers": "Who will buy from you? (Example: \"office workers near my area\")"
+      },
+      "summary_title": "Thank you! Here is what I know about your business:",
+      "summary_labels": {
+        "business_idea": "Business idea",
+        "budget_inr": "Budget",
+        "location": "Location",
+        "skills": "Skills",
+        "target_customers": "Customers",
+        "time_available": "Time available",
+        "sales_channel": "How you will sell",
+        "experience": "Experience",
+        "extra_notes": "Other notes"
+      },
+      "summary_question": "Shall I create your business plan?"
+    },
+    "hi": {
+      "greeting": "नमस्ते! मैं छोटे-छोटे सवाल पूछकर आपके बिज़नेस का प्लान बनाने में मदद करूँगा।",
+      "ack": "ठीक है, धन्यवाद!",
+      "off_topic": "अच्छा सवाल है! इसका जवाब मैं आपके बिज़नेस प्लान में दूँगा।",
+      "privacy": "कृपया आधार, पैन, बैंक या फ़ोन नंबर न भेजें। इनकी ज़रूरत नहीं है, और मैंने इन्हें सेव नहीं किया।",
+      "questions": {
+        "business_idea": "आप कौन-सा बिज़नेस शुरू करना चाहते हैं? (जैसे: \"मैं घर का बना अचार बेचना चाहता हूँ\")",
+        "budget_inr": "आप इस बिज़नेस में कितने पैसे लगा सकते हैं? (जैसे: \"20,000 रुपये\" या \"1 लाख\")",
+        "location": "आप यह बिज़नेस किस शहर, कस्बे या गाँव में करेंगे? (जैसे: \"इंदौर\")",
+        "skills": "आपको कौन-सा काम अच्छे से आता है? (जैसे: \"मैं स्वादिष्ट खाना बनाता हूँ\")",
+        "target_customers": "आपसे सामान कौन खरीदेगा? (जैसे: \"पास के ऑफ़िस में काम करने वाले लोग\")"
+      },
+      "summary_title": "धन्यवाद! आपके बिज़नेस के बारे में मुझे यह पता है:",
+      "summary_labels": {
+        "business_idea": "बिज़नेस आइडिया",
+        "budget_inr": "बजट",
+        "location": "जगह",
+        "skills": "हुनर",
+        "target_customers": "ग्राहक",
+        "time_available": "समय",
+        "sales_channel": "कैसे बेचेंगे",
+        "experience": "अनुभव",
+        "extra_notes": "दूसरी बातें"
+      },
+      "summary_question": "क्या मैं आपका बिज़नेस प्लान बनाऊँ?"
+    }
+  }
+}
