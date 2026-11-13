@@ -24,7 +24,7 @@ from typing import Optional, TypedDict
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import END, START, StateGraph
 
-from app import rag
+from app import checklist, rag
 from app.calculator import FinancialInput, FinancialSummary, full_financials
 from app.config import BASE_DIR, settings
 from app.llm import get_plan_llm, load_prompt
@@ -276,6 +276,9 @@ def finalize_node(state: PlanState) -> dict:
         if session is not None:
             session.plan = plan.model_dump(mode="json")
             save_session(session)
+            # Phase 6: the plan's launch steps become the session's checklist on the server.
+            if plan.draft is not None:
+                checklist.sync_from_plan(session.session_id, plan.draft.launch_steps)
     return {"plan": plan}
 
 
