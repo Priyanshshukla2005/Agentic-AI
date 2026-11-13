@@ -12,7 +12,8 @@ create personalized business plans, budget-based pricing and step-by-step launch
 | 1 | Setup + LLM connection (groq / ollama / mock) | ✅ Done |
 | 2 | Multilingual intake chat (collects the business profile) | ✅ Done |
 | 3 | RAG over official scheme documents + pricing/profit calculator | ✅ Done |
-| 4-7 | Plan generation, frontend, checklist, evaluation | ⏳ Next |
+| 4 | Plan generation agent (LangGraph) + validation + repair | ✅ Done |
+| 5-7 | Frontend, checklist, evaluation | ⏳ Next |
 
 ```
 ai-business-starter/
@@ -26,29 +27,45 @@ ai-business-starter/
 │   ├── rag.py             # Phase 3: load/split/embed docs, search ChromaDB, profile -> searches
 │   ├── calculator.py      # Phase 3: budget, price, break-even, scenarios, GST/FSSAI flags (no LLM)
 │   ├── tools.py           # Phase 3: LangChain @tool wrappers for the Phase 4 agent (ALL_TOOLS)
+│   ├── structured.py      # Phase 4: LLM -> pydantic object with 3 fallbacks (used by intake + plan)
+│   ├── plan_models.py     # Phase 4: PlanDraft, ValidationReport, BusinessPlan
+│   ├── plan_validation.py # Phase 4: rule-based checks + auto-fix (no LLM)
+│   ├── plan_mock.py       # Phase 4: fixed valid / invalid drafts for mock mode
+│   ├── planner.py         # Phase 4: LangGraph agent: retrieve -> draft -> calculate -> validate -> ...
 │   ├── routes/
 │   │   ├── intake.py      # Phase 2: /api/session, /api/chat endpoints
-│   │   └── tools.py       # Phase 3: /api/rag/..., /api/calculate endpoints
+│   │   ├── tools.py       # Phase 3: /api/rag/..., /api/calculate endpoints
+│   │   └── plan.py        # Phase 4: /api/plan endpoints
 │   └── prompts/
 │       ├── baseline_v1.txt          # Phase 1 baseline plan prompt
 │       ├── intake_extract_v1.txt    # Phase 2: pull details out of a message (with Hinglish examples)
 │       ├── intake_question_v1.txt   # Phase 2: ask the next question in the user's language
 │       ├── intake_summary_v1.txt    # Phase 2: summary + "Shall I create your business plan?"
-│       └── intake_templates_v1.json # Phase 2: field labels + fixed mock-mode messages (en, hi)
+│       ├── intake_templates_v1.json # Phase 2: field labels + fixed mock-mode messages (en, hi)
+│       ├── plan_v1.txt ... plan_v4.txt  # Phase 4: plan prompt versions (see table below)
+│       ├── plan_input_v1.txt        # Phase 4: profile + repair feedback (human message)
+│       └── plan_repair_v1.txt       # Phase 4: "fix these problems" feedback text
 ├── data/
 │   ├── docs/                # Phase 3: official scheme documents (.md now, add PDFs any time)
-│   └── eval/rag_questions.json  # Phase 3: 12 test questions for the RAG hit-rate
+│   └── eval/
+│       ├── rag_questions.json   # Phase 3: 12 test questions for the RAG hit-rate
+│       └── sample_profiles.json # Phase 4: 5 complete profiles for plan generation
+├── docs/plan_graph.md       # Phase 4: Mermaid diagram of the plan agent
 ├── chroma_db/               # Phase 3: vector database, built by ingest_docs.py (NOT committed)
 ├── scripts/
 │   ├── test_llm.py          # Phase 1 terminal test - no server needed
 │   ├── chat_cli.py          # Phase 2 terminal chat - no server needed
 │   ├── ingest_docs.py       # Phase 3: build the scheme index
 │   ├── eval_rag.py          # Phase 3: hit-rate@4 of scheme search
+│   ├── generate_plan_cli.py # Phase 4: generate / compare plans in the terminal
 │   └── list_groq_models.py  # Shows which Groq models your key can use
 ├── tests/
 │   ├── test_intake.py       # Phase 2 tests (offline, mock mode)
 │   ├── test_calculator.py   # Phase 3 calculator tests (exact numbers)
-│   └── test_rag.py          # Phase 3 RAG tests (fake embeddings, no download)
+│   ├── test_rag.py          # Phase 3 RAG tests (fake embeddings, no download)
+│   ├── test_validation.py   # Phase 4: every validation rule
+│   ├── test_planner.py      # Phase 4: the whole graph (mock + fake LLM)
+│   └── test_plan_api.py     # Phase 4: /api/plan endpoints
 ├── requirements.txt
 └── .env.example
 ```
@@ -357,6 +374,190 @@ Response (the low and high scenarios are left out here to keep it short):
 Leave out `selling_price` to use the suggested price; leave out `fixed_monthly_costs` to use the total of the
 `monthly` cost items.
 
+## Phase 4: Business plan generation + validation
+
+```
+complete profile ─► RAG retrieval ─► LLM writes plan ─► calculator ─► validate ─┬─ ok ─────────────► final plan
+                                          ▲                                       ├─ problems ─► repair (feedback to LLM, max 2 rounds)
+                                          └───────────────────────────────────────┘
+                                                                                  └─ still wrong ─► auto_fix ─► final plan (with warnings)
+```
+
+**Core rule:** the LLM only proposes INPUT numbers (costs, unit cost, price, market range, expected sales).
+The calculator computes every total, profit, break-even and payback, and the final plan shows only
+calculator numbers.
+
+### The agent graph (`app/planner.py`, LangGraph)
+
+Diagram: [docs/plan_graph.md](docs/plan_graph.md) (regenerate with `python -m app.planner`).
+
+| Node | What it does |
+|---|---|
+| `retrieve` | `rag.retrieve_for_profile(profile)`. Index missing -> empty context + warning, no crash |
+| `draft` | Builds the prompt for the chosen version and gets a `PlanDraft` via `invoke_structured` (plan_v1: free text -> straight to `finalize`) |
+| `calculate` | `calculator.full_financials(...)` from the draft numbers + the profile budget |
+| `validate` | Plain Python rules (table below), no LLM |
+| `repair` | Blocking issues -> "Fix these problems: ..." feedback -> back to `draft` (at most 2 rounds) |
+| `auto_fix` | After the last round: drop invented schemes, soften promise words. Budget/price problems stay visible |
+| `finalize` | Builds the `BusinessPlan`, records timings per node, saves it in the session |
+
+`generate_plan(profile, language, prompt_version="plan_v4") -> BusinessPlan` runs the whole graph.
+
+### Validation rules (`app/plan_validation.py`)
+
+| Code | Severity | Triggered when |
+|---|---|---|
+| `BUDGET_OVER` | blocking | one-time costs + first month of fixed costs > budget |
+| `LOW_RESERVE` | warning | less than 10% of the budget is left |
+| `PRICE_BELOW_COST` | blocking | selling price <= unit cost |
+| `PRICE_OUT_OF_MARKET` | warning | price outside the market low-high range |
+| `BREAK_EVEN_UNREALISTIC` | blocking | break-even units/day > units_per_day_high |
+| `HALLUCINATED_SCHEME` | blocking | scheme name or source_url not in the retrieved documents |
+| `GUARANTEE_LANGUAGE` | blocking | promise words in any text: "guaranteed", "100% profit", "risk-free", "definitely earn", "pakka munafa", "गारंटी" ... ("bina guarantee" loans and "Credit Guarantee Fund" are allowed) |
+| `MISSING_SECTION` | blocking | empty marketing_ideas, launch_steps or assumptions |
+| `BAD_STEP_COUNT` | blocking | launch steps not between 5 and 8 |
+| `INVALID_NUMBERS` | blocking | the calculator could not use the numbers |
+
+Blocking issues trigger a repair round; warnings are shown in the plan. Anything still wrong at the end
+appears in `validation.issues` and `warnings`: it is never hidden.
+
+### Prompt versions (our prompt-engineering story)
+
+| Version | Builds on | What it adds | Output |
+|---|---|---|---|
+| `plan_v1` | | Exactly our baseline prompt from the submission form | Free text (not validated, comparison only) |
+| `plan_v2` | v1 | Clear role, 11 numbered rules, PlanDraft JSON schema, "ask nothing, state assumptions", no profit guarantees, Class 8 words, integer rupees, fit the budget with a 10% reserve | Structured JSON |
+| `plan_v3` | v2 | 2 few-shot examples: healthy meals (Rs 20,000, Ghaziabad) and homemade pickles (Rs 5,000, Hardoi), both checked with the calculator | Structured JSON |
+| `plan_v4` | v3 | Grounding: `{scheme_context}` from RAG, "only schemes from the context, copy source_url exactly", "do not calculate totals", answer in `{language_name}` | Structured JSON (default) |
+
+Placeholders: `{profile_json}`, `{scheme_context}`, `{language_name}`, `{validation_feedback}`.
+Plan calls use `PLAN_MAX_TOKENS` (default 4096) because plans are long.
+
+### Phase 4 endpoints
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/api/plan` | `{"session_id": "...", "prompt_version": "plan_v4"}` | `BusinessPlan` (also saved in the session) |
+| GET | `/api/plan/{session_id}` | | last plan of that session |
+| POST | `/api/plan/preview` | `{"profile": {...}, "language": "hi", "prompt_version": "plan_v4"}` | `BusinessPlan` without a session |
+| POST | `/api/plan/compare` | `{"profile": {...}, "versions": ["plan_v1", "plan_v2", "plan_v3", "plan_v4"]}` | one result per version: plan, validation, seconds |
+
+Errors: **404** unknown session / no plan yet · **409** profile incomplete (`detail.missing_fields` lists what is
+missing) · **422** unknown prompt version · **500** LLM not configured · **502** LLM call failed.
+
+Every plan includes the `validation` report and the `sources` (retrieved chunks), so the UI can show them.
+
+### Try it
+
+```bash
+LLM_PROVIDER=mock python scripts/generate_plan_cli.py --profile 0 --all-versions   # offline comparison
+LLM_PROVIDER=mock python scripts/generate_plan_cli.py --profile 0 --mock-variant invalid  # see repair + auto_fix
+python scripts/generate_plan_cli.py --profile 2 --version plan_v4                  # real LLM (Hindi profile)
+```
+
+Profiles 0-4 in `data/eval/sample_profiles.json`: meal service (Rs 20k, Ghaziabad), pickles (Rs 5k, Hardoi, hi),
+vegetable cart (Rs 8k, Lucknow, hi), home boutique (Rs 30k, Indore), block-print crafts online (Rs 15k, Jaipur).
+
+In mock mode the draft is always the healthy-meal plan (`app/plan_mock.py`); set `MOCK_PLAN_VARIANT=invalid`
+(or `--mock-variant invalid`) to get a broken plan (over budget + promise words + invented scheme).
+
+### Sample `/api/plan` response (mock mode, trimmed)
+
+```json
+{
+  "profile": {
+    "language": "en",
+    "business_idea": "I want to start a healthy tiffin service",
+    "budget_inr": 20000,
+    "location": "Ghaziabad",
+    "...": "..."
+  },
+  "draft": {
+    "business_summary": "A home kitchen in Ghaziabad that cooks fresh, high-protein lunch boxes for gym-goers. Meals are delivered near 3-4 local gyms. Start small with lunch only and grow with regular monthly customers.",
+    "unit_name": "meal",
+    "startup_costs": [
+      {
+        "name": "Gas stove and pressure cooker",
+        "amount_inr": 3500,
+        "kind": "one_time"
+      },
+      {
+        "name": "Utensils and kitchen scale",
+        "amount_inr": 2500,
+        "kind": "one_time"
+      },
+      "..."
+    ],
+    "unit_cost_inr": 100,
+    "selling_price_inr": 170,
+    "schemes": [
+      {
+        "scheme": "FSSAI Registration",
+        "why_it_fits": "Found in the official documents for this business (license).",
+        "source_url": "https://fssai.gov.in/upload/uploadfiles/files/FAQs_Licensing_Registration_21_12_2022.pdf"
+      }
+    ],
+    "launch_steps": [
+      {
+        "title": "Fix the menu",
+        "detail": "Plan 6 high-protein dishes and write the protein in grams for each.",
+        "estimated_days": 3,
+        "estimated_cost_inr": null
+      },
+      "..."
+    ],
+    "...": "..."
+  },
+  "financials": {
+    "budget": {
+      "budget_inr": 20000,
+      "startup_need": 13000,
+      "remaining": 7000,
+      "percent_used": 65.0,
+      "over_budget": false
+    },
+    "unit": {
+      "profit_per_unit": 70,
+      "margin_percent": 41.2
+    },
+    "break_even": {
+      "possible": true,
+      "units_per_month": 43,
+      "units_per_day": 2,
+      "message": "Sell at least 43 units a month (about 2 a day over 26 working days) to cover fixed costs."
+    },
+    "payback_months": 0.7,
+    "...": "..."
+  },
+  "validation": {
+    "passed": true,
+    "issues": [],
+    "repairs_made": [],
+    "attempts": 1
+  },
+  "sources": [
+    {
+      "scheme": "FSSAI Registration",
+      "source_url": "https://fssai.gov.in/upload/uploadfiles/files/FAQs_Licensing_Registration_21_12_2022.pdf",
+      "score": 0.737
+    },
+    "..."
+  ],
+  "warnings": [],
+  "language": "en",
+  "prompt_version": "plan_v4",
+  "provider": "mock",
+  "model": "mock",
+  "timings": {
+    "retrieve": 8.248,
+    "draft": 0.0,
+    "calculate": 0.0,
+    "validate": 0.001,
+    "total": 8.255
+  }
+}
+```
+
 ## Troubleshooting
 
 | Error | Fix |
@@ -368,7 +569,9 @@ Leave out `selling_price` to use the suggested price; leave out `fixed_monthly_c
 | Chat replies are in English although I chose Tamil | You are in mock mode (templates exist for en + hi only). Use groq or ollama |
 | `503 ... Run python scripts/ingest_docs.py first` | The scheme index is not built yet: run `python scripts/ingest_docs.py` |
 | Embedding model download fails | Check internet access to huggingface.co, or set `EMBEDDING_MODEL` in `.env` to a model you already have |
+| Plan shows `HALLUCINATED_SCHEME` for every scheme | The scheme index is missing or empty: run `python scripts/ingest_docs.py` |
+| `502 LLM call failed` on `/api/plan` | Groq rate limit or a model that cannot return JSON: wait, or try `GROQ_MODEL=openai/gpt-oss-20b` |
 | `ModuleNotFoundError: app` | Run commands from the project folder (the one containing `app/`) |
 
 ## Next phases
-4. Plan generation + validation · 5. Frontend · 6. Checklist, Q&A, languages · 7. Evaluation
+5. Frontend · 6. Checklist, Q&A, languages · 7. Evaluation

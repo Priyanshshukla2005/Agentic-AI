@@ -19,6 +19,8 @@ class Settings:
 
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
     LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "2048"))
+    # Business plans are long JSON answers, so plan calls get a bigger output limit.
+    PLAN_MAX_TOKENS: int = int(os.getenv("PLAN_MAX_TOKENS", "4096"))
 
     PROMPTS_DIR: Path = BASE_DIR / "app" / "prompts"
 

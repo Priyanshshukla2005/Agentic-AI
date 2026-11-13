@@ -23,6 +23,8 @@ class Session(BaseModel):
     profile: BusinessProfile
     messages: list[Message] = Field(default_factory=list)
     created_at: datetime
+    # Phase 4: the last generated BusinessPlan, stored as plain JSON (easy to put in SQLite later).
+    plan: Optional[dict] = None
 
 
 class InMemorySessionStore:
