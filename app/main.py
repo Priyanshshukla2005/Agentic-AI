@@ -1,5 +1,5 @@
 """FastAPI backend - Phase 1 (LLM test) + Phase 2 (intake chat) + Phase 3 (RAG + calculator)
-+ Phase 4 (plan generation).
++ Phase 4 (plan generation) + Phase 5 (web app at /).
 
 Run:  uvicorn app.main:app --reload
 Docs: http://127.0.0.1:8000/docs   (try the endpoints from your browser)
@@ -8,11 +8,14 @@ import time
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.llm import LLMConfigError, get_llm, load_prompt
+from app.routes.frontend import STATIC_DIR
+from app.routes.frontend import router as frontend_router
 from app.routes.intake import router as intake_router
 from app.routes.plan import router as plan_router
 from app.routes.tools import router as tools_router
@@ -20,7 +23,7 @@ from app.routes.tools import router as tools_router
 app = FastAPI(
     title="AI Business Starter Agent",
     description="Agentic AI that helps aspiring entrepreneurs plan and launch a small business.",
-    version="0.4.0",
+    version="0.5.0",
 )
 
 # Allow the frontend (Phase 5) to call this API from the browser.
@@ -37,6 +40,9 @@ app.include_router(intake_router)
 app.include_router(tools_router)
 # Phase 4: business plan endpoints (/api/plan...) in app/routes/plan.py
 app.include_router(plan_router)
+# Phase 5: the web app (GET /, /compare.html, /api/samples) + its CSS/JS files under /static
+app.include_router(frontend_router)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ---------- Request / response models ----------

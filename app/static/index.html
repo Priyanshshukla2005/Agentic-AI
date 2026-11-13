@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1b6b45">
+  <title>Business Starter</title>
+  <meta name="description" content="Plan your small business in simple steps, in your language.">
+  <!-- Noto fonts so Hindi, Bengali, Marathi, Tamil, Telugu and Gujarati render properly on every phone -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&family=Noto+Sans+Telugu:wght@400;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>">
+</head>
+<body>
+  <header class="app-header">
+    <div class="inner">
+      <p class="brand"><span class="logo" aria-hidden="true">🌱</span><span data-i18n="appName">Business Starter</span></p>
+    </div>
+  </header>
+
+  <!-- Shown by app.js when the phone goes offline -->
+  <div id="offline-banner" class="alert error no-print" role="status" hidden style="max-width:720px;margin:8px auto;"></div>
+
+  <main id="app" tabindex="-1">
+    <noscript><p>Please turn on JavaScript to use Business Starter.</p></noscript>
+  </main>
+
+  <footer class="app-footer">
+    <p data-i18n="footerNote">Plans are estimates. Always check with official sources.</p>
+    <p class="no-print"><a href="/compare.html" data-i18n="footerCompare">Prompt comparison</a></p>
+  </footer>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
