@@ -68,6 +68,7 @@ class PlanState(TypedDict, total=False):
     english_draft: Optional[PlanDraft]  # pivot mode: the draft before translation
     language_retried: bool
     script_match: Optional[float]
+    initial_issue_codes: Optional[list[str]]
     chunks: list[RetrievedChunk]
     warnings: list[str]
     draft: Optional[PlanDraft]
@@ -252,7 +253,10 @@ def run_checks(state: PlanState, draft: PlanDraft) -> tuple[list[ValidationIssue
 @timed("validate")
 def validate_node(state: PlanState) -> dict:
     issues, ratio = run_checks(state, state["draft"])
-    return {"issues": issues, "script_match": ratio}
+    update = {"issues": issues, "script_match": ratio}
+    if state.get("initial_issue_codes") is None:  # remember what the FIRST draft got wrong
+        update["initial_issue_codes"] = [i.code for i in issues]
+    return update
 
 
 def route_after_validate(state: PlanState) -> str:
@@ -317,6 +321,7 @@ def finalize_node(state: PlanState) -> dict:
             issues=issues,
             repairs_made=state.get("repairs_made", []),
             attempts=state.get("attempts", 0),
+            initial_issue_codes=state.get("initial_issue_codes") or [],
         )
         # Problems that are still there are shown to the user, never hidden.
         warnings += [f"{i.code}: {i.message}" for i in issues]
