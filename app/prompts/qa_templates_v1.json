@@ -1,0 +1,37 @@
+{
+  "mock": {
+    "en": {
+      "what_if": "At {price} you keep {profit} per {unit}. To cover your monthly costs of {fixed} you need about {day} sales a day ({month} a month). These are estimates, not guarantees.",
+      "loss": "At {price} you do not make any profit on each {unit} (cost {cost}). Keep the price above the cost.",
+      "scheme": "Look at {scheme}: {snippet} Please confirm details at the official office.",
+      "customers": "Try this first: {idea}. Start with people you know, then ask each happy customer to tell 2 friends.",
+      "next_step": "Your next step is \"{title}\": {detail}",
+      "all_done": "You have finished all your launch steps. Keep a simple daily notebook of sales and costs.",
+      "off_topic": "I can only help with your business. Shall we look at your next step?",
+      "privacy": "Please do not share Aadhaar, PAN, bank or phone numbers here. I did not save them."
+    },
+    "hi": {
+      "what_if": "{price} पर हर {unit} पर आपको {profit} बचेंगे। महीने का खर्च {fixed} निकालने के लिए रोज़ लगभग {day} बिक्री (महीने में {month}) चाहिए। ये अनुमान हैं, गारंटी नहीं।",
+      "loss": "{price} पर हर {unit} पर कोई मुनाफ़ा नहीं होगा (लागत {cost})। दाम लागत से ऊपर रखें।",
+      "scheme": "{scheme} देखें: {snippet} पूरी जानकारी सरकारी दफ़्तर से पक्की कर लें।",
+      "customers": "पहले यह करें: {idea}। जान-पहचान वालों से शुरू करें, फिर हर खुश ग्राहक से 2 दोस्तों को बताने को कहें।",
+      "next_step": "आपका अगला कदम है \"{title}\": {detail}",
+      "all_done": "आपने शुरुआत के सारे कदम पूरे कर लिए। रोज़ की बिक्री और खर्च एक कॉपी में लिखते रहें।",
+      "off_topic": "मैं सिर्फ़ आपके बिज़नेस में मदद कर सकता हूँ। क्या हम आपका अगला कदम देखें?",
+      "privacy": "कृपया आधार, पैन, बैंक या फ़ोन नंबर यहाँ न लिखें। मैंने इन्हें सेव नहीं किया।"
+    }
+  },
+  "guide_tip": {
+    "en": "Tip: do the first small part today - {detail}",
+    "hi": "सुझाव: आज ही पहला छोटा काम करें - {detail}"
+  },
+  "progress": {
+    "en": {"some": "You have finished {done} of {total} steps!", "none": "Let's start with the first step today!", "all": "You have finished all {total} steps. Well done!"},
+    "hi": {"some": "आपने {total} में से {done} कदम पूरे कर लिए!", "none": "चलिए आज पहला कदम शुरू करते हैं!", "all": "आपने सभी {total} कदम पूरे कर लिए। शाबाश!"},
+    "bn": {"some": "আপনি {total}টির মধ্যে {done}টি ধাপ শেষ করেছেন!", "none": "চলুন আজ প্রথম ধাপ শুরু করি!", "all": "আপনি সব {total}টি ধাপ শেষ করেছেন। দারুণ!"},
+    "mr": {"some": "तुम्ही {total} पैकी {done} टप्पे पूर्ण केले!", "none": "चला, आज पहिला टप्पा सुरू करूया!", "all": "तुम्ही सर्व {total} टप्पे पूर्ण केले. शाब्बास!"},
+    "ta": {"some": "நீங்கள் {total} இல் {done} படிகளை முடித்துவிட்டீர்கள்!", "none": "இன்று முதல் படியைத் தொடங்குவோம்!", "all": "எல்லா {total} படிகளையும் முடித்துவிட்டீர்கள். அருமை!"},
+    "te": {"some": "మీరు {total} లో {done} దశలు పూర్తి చేశారు!", "none": "ఈరోజే మొదటి దశ మొదలుపెడదాం!", "all": "మీరు అన్ని {total} దశలు పూర్తి చేశారు. శభాష్!"},
+    "gu": {"some": "તમે {total} માંથી {done} પગલાં પૂરાં કર્યાં!", "none": "ચાલો, આજે પહેલું પગલું શરૂ કરીએ!", "all": "તમે બધાં {total} પગલાં પૂરાં કર્યાં. શાબાશ!"}
+  }
+}
