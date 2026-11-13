@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1b6b45">
+  <title>Prompt comparison - Business Starter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>">
+</head>
+<body class="wide">
+  <header class="app-header">
+    <div class="inner">
+      <p class="brand"><a href="/" style="color:#fff;text-decoration:none"><span class="logo" aria-hidden="true">🌱</span>Business Starter</a></p>
+    </div>
+  </header>
+
+  <main id="compare" tabindex="-1">
+    <h1>Prompt comparison</h1>
+    <p class="muted">The same business profile through each plan prompt version (plan_v1 to plan_v4).
+      Each later version adds structure, examples and grounding; the validation checks show what improves.</p>
+
+    <section class="card no-print">
+      <label for="sample-select"><strong>Sample profile</strong></label>
+      <select id="sample-select"><option>Loading…</option></select>
+      <fieldset style="border:none;padding:0;margin:12px 0 0">
+        <legend><strong>Prompt versions</strong></legend>
+        <div class="version-picks" id="version-picks"></div>
+      </fieldset>
+      <button class="btn big" id="run-btn" type="button">Compare</button>
+    </section>
+
+    <div id="compare-status" aria-live="polite"></div>
+    <div id="compare-results"></div>
+  </main>
+
+  <footer class="app-footer"><p><a href="/">← Back to the app</a></p></footer>
+  <script type="module" src="/static/js/compare.js"></script>
+</body>
+</html>
