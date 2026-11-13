@@ -13,7 +13,8 @@ create personalized business plans, budget-based pricing and step-by-step launch
 | 2 | Multilingual intake chat (collects the business profile) | ✅ Done |
 | 3 | RAG over official scheme documents + pricing/profit calculator | ✅ Done |
 | 4 | Plan generation agent (LangGraph) + validation + repair | ✅ Done |
-| 5-7 | Frontend, checklist, evaluation | ⏳ Next |
+| 5 | Mobile-first web app (7 languages) + prompt comparison page | ✅ Done |
+| 6-7 | Checklist on the server, Q&A, SQLite, evaluation | ⏳ Next |
 
 ```
 ai-business-starter/
@@ -32,7 +33,13 @@ ai-business-starter/
 │   ├── plan_validation.py # Phase 4: rule-based checks + auto-fix (no LLM)
 │   ├── plan_mock.py       # Phase 4: fixed valid / invalid drafts for mock mode
 │   ├── planner.py         # Phase 4: LangGraph agent: retrieve -> draft -> calculate -> validate -> ...
+│   ├── static/            # Phase 5: the web app (plain HTML/CSS/JS, no build step)
+│   │   ├── index.html     #   app shell: welcome -> chat -> plan
+│   │   ├── compare.html   #   prompt comparison page
+│   │   ├── css/styles.css #   mobile-first styles + print stylesheet ("Download PDF")
+│   │   └── js/            #   api.js, i18n.js (7 languages), app.js, plan_view.js, compare.js
 │   ├── routes/
+│   │   ├── frontend.py    # Phase 5: GET /, /compare.html, /api/samples
 │   │   ├── intake.py      # Phase 2: /api/session, /api/chat endpoints
 │   │   ├── tools.py       # Phase 3: /api/rag/..., /api/calculate endpoints
 │   │   └── plan.py        # Phase 4: /api/plan endpoints
@@ -50,7 +57,9 @@ ai-business-starter/
 │   └── eval/
 │       ├── rag_questions.json   # Phase 3: 12 test questions for the RAG hit-rate
 │       └── sample_profiles.json # Phase 4: 5 complete profiles for plan generation
-├── docs/plan_graph.md       # Phase 4: Mermaid diagram of the plan agent
+├── docs/
+│   ├── plan_graph.md        # Phase 4: Mermaid diagram of the plan agent
+│   └── screenshots/         # Phase 5: app screenshots made by scripts/smoke_ui.py
 ├── chroma_db/               # Phase 3: vector database, built by ingest_docs.py (NOT committed)
 ├── scripts/
 │   ├── test_llm.py          # Phase 1 terminal test - no server needed
@@ -58,6 +67,7 @@ ai-business-starter/
 │   ├── ingest_docs.py       # Phase 3: build the scheme index
 │   ├── eval_rag.py          # Phase 3: hit-rate@4 of scheme search
 │   ├── generate_plan_cli.py # Phase 4: generate / compare plans in the terminal
+│   ├── smoke_ui.py          # Phase 5: clicks through the app in a headless browser, saves screenshots
 │   └── list_groq_models.py  # Shows which Groq models your key can use
 ├── tests/
 │   ├── test_intake.py       # Phase 2 tests (offline, mock mode)
@@ -65,7 +75,8 @@ ai-business-starter/
 │   ├── test_rag.py          # Phase 3 RAG tests (fake embeddings, no download)
 │   ├── test_validation.py   # Phase 4: every validation rule
 │   ├── test_planner.py      # Phase 4: the whole graph (mock + fake LLM)
-│   └── test_plan_api.py     # Phase 4: /api/plan endpoints
+│   ├── test_plan_api.py     # Phase 4: /api/plan endpoints
+│   └── test_frontend.py     # Phase 5: static files + /api/samples
 ├── requirements.txt
 └── .env.example
 ```
@@ -558,6 +569,84 @@ In mock mode the draft is always the healthy-meal plan (`app/plan_mock.py`); set
 }
 ```
 
+## Phase 5: The web app
+
+A mobile-first web app for people with little business knowledge and low digital literacy:
+big buttons and text, short sentences, simple icons, 7 Indian languages. Plain HTML + CSS + JavaScript
+(ES modules) served by FastAPI itself, so there is **no build step and no npm**.
+
+### Open it
+
+```bash
+uvicorn app.main:app --reload
+```
+
+Open **http://127.0.0.1:8000** in a browser. In mock mode (`LLM_PROVIDER=mock`) it needs no internet,
+except for the web fonts.
+
+**On a phone (same Wi-Fi as the laptop):**
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Find the laptop's local IP (Windows: `ipconfig`, look for "IPv4 Address"; Mac: `ipconfig getifaddr en0`;
+Linux: `hostname -I`), then open `http://<that-ip>:8000` on the phone, e.g. `http://192.168.1.23:8000`.
+If it does not load, allow Python through the laptop's firewall.
+
+### Screens
+
+| Screen | What the user does | API used |
+|---|---|---|
+| 1. Welcome | Picks a language (remembered on the phone) or taps "Try a sample plan" | `GET /api/samples`, `POST /api/plan/preview` |
+| 2. Chat | Answers 5 short questions (typing, budget chips or the mic); sees "3 of 5 details" and can edit any detail | `POST /api/session`, `POST /api/chat`, `PATCH /api/session/{id}/profile` |
+| 3. Plan | Reads the plan cards, ticks the launch checklist, downloads a PDF, listens to the summary | `POST /api/plan` |
+| Compare | (for judges) runs plan_v1..v4 on a sample and shows issues per version | `GET /api/samples`, `POST /api/plan/compare` |
+
+Plan cards, in order: summary · startup budget (table + budget bar + warnings) · pricing & profit
+(break-even + low/normal/good month, marked "Estimates, not guaranteed") · marketing ideas · government
+schemes (with "View official source" links) · launch checklist (ticks saved on the phone) · assumptions & risks ·
+"Checks we ran" (the validation report). All money numbers come from the calculator (`financials`),
+formatted Indian style (₹1,50,000).
+
+Details worth showing in a demo:
+* **Loading**: plan generation shows rotating messages ("Finding government schemes…", "Calculating costs…").
+* **Errors**: friendly message + "Try again", including when the phone is offline. Never a stack trace.
+* **Voice**: 🎤 speech input in the chosen language (hidden if the browser cannot do it); 🔊 "Listen" reads the summary.
+* **Download PDF**: uses the browser's print dialog with a print stylesheet (no buttons, clean cards, source URLs printed).
+* **Safety**: text from the API is always inserted as text, never as HTML.
+* **Accessibility**: labels on every input, `aria-live` chat log, visible keyboard focus, 48px tap targets.
+* **"Ask a question"** is shown as "Coming soon" (Phase 6).
+
+Translations live in `app/static/js/i18n.js`. English and Hindi are reviewed; Bengali, Marathi, Tamil,
+Telugu and Gujarati should be checked by native speakers.
+
+### Prompt comparison page
+
+Open **http://127.0.0.1:8000/compare.html** (or the "Prompt comparison" link in the footer). Pick a sample
+profile, tick the prompt versions and press Compare: a summary row shows validation result, issue count,
+schemes and time per version, with each full plan underneath (columns on desktop, stacked on phones).
+
+### Screenshots (mock mode, 390x844 phone)
+
+| Welcome | Chat | Plan | Hindi plan |
+|---|---|---|---|
+| ![Welcome](docs/screenshots/01_welcome.png) | ![Chat](docs/screenshots/03_chat_complete.png) | ![Plan](docs/screenshots/04_plan.png) | ![Hindi plan](docs/screenshots/06_plan_hindi_sample.png) |
+
+More in [docs/screenshots/](docs/screenshots/): budget chips, print view, error + retry, compare page (desktop).
+
+### Browser smoke test (optional)
+
+```bash
+pip install playwright
+playwright install chromium
+python scripts/smoke_ui.py      # starts its own mock server
+```
+
+It clicks through welcome -> chat -> edit a detail -> plan -> checklist -> print view -> Hindi sample ->
+compare page, simulates a network error (must show "Try again"), fails on any JavaScript error and saves
+the screenshots above.
+
 ## Troubleshooting
 
 | Error | Fix |
@@ -571,7 +660,9 @@ In mock mode the draft is always the healthy-meal plan (`app/plan_mock.py`); set
 | Embedding model download fails | Check internet access to huggingface.co, or set `EMBEDDING_MODEL` in `.env` to a model you already have |
 | Plan shows `HALLUCINATED_SCHEME` for every scheme | The scheme index is missing or empty: run `python scripts/ingest_docs.py` |
 | `502 LLM call failed` on `/api/plan` | Groq rate limit or a model that cannot return JSON: wait, or try `GROQ_MODEL=openai/gpt-oss-20b` |
+| Phone cannot open the app | Start with `--host 0.0.0.0`, use the laptop's IP (not 127.0.0.1), same Wi-Fi, allow Python in the firewall |
+| Mic or Listen button missing | The browser has no speech support for that language (works best in Chrome on Android) |
 | `ModuleNotFoundError: app` | Run commands from the project folder (the one containing `app/`) |
 
 ## Next phases
-5. Frontend · 6. Checklist, Q&A, languages · 7. Evaluation
+6. Checklist, Q&A, languages · 7. Evaluation
