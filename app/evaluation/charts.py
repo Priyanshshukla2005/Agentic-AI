@@ -33,7 +33,7 @@ def _style(ax, ylabel: str, title: str, ymax: Optional[float] = None):
     from app.config import settings
 
     if settings.LLM_PROVIDER == "mock":  # never let pipeline-test charts pass as real results
-        title += "  [MOCK DATA - not real results]"
+        title += "\nMOCK DATA - not real results"
     ax.set_title(title, loc="left", color=INK, pad=12)
     ax.set_ylabel(ylabel)
     ax.grid(axis="y", color=GRID, linewidth=0.8)
