@@ -1,5 +1,5 @@
 // compare.js - prompt comparison page (our prompt-engineering demo).
-// Pick a sample profile + prompt versions -> POST /api/plan/compare -> one column per version.
+// Pick a sample profile + prompt versions (plan_v1 to plan_v5) -> POST /api/plan/compare -> one column per version.
 // This page is for judges and the team, so its own labels are in English; each plan is
 // rendered with the normal plan cards in the profile's language.
 
@@ -12,6 +12,7 @@ const VERSIONS = [
   { id: "plan_v2", note: "Rules + JSON schema" },
   { id: "plan_v3", note: "+ 2 worked examples" },
   { id: "plan_v4", note: "+ scheme documents (grounding)" },
+  { id: "plan_v5", note: "+ language guidance (default)" },
 ];
 
 const select = document.getElementById("sample-select");

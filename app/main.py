@@ -5,6 +5,7 @@ Run:  uvicorn app.main:app --reload
 Docs: http://127.0.0.1:8000/docs   (try the endpoints from your browser)
 """
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,14 +14,25 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from app.config import settings
+from app.db import init_db
 from app.llm import LLMConfigError, get_llm, load_prompt
+from app.routes.advisor import router as advisor_router
+from app.routes.checklist import router as checklist_router
 from app.routes.frontend import STATIC_DIR
 from app.routes.frontend import router as frontend_router
 from app.routes.intake import router as intake_router
 from app.routes.plan import router as plan_router
 from app.routes.tools import router as tools_router
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Phase 6: create the SQLite tables (data/app.db) when the server starts. Safe every time."""
+    init_db()
+    yield
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="AI Business Starter Agent",
     description="Agentic AI that helps aspiring entrepreneurs plan and launch a small business.",
     version="0.5.0",
@@ -40,6 +52,10 @@ app.include_router(intake_router)
 app.include_router(tools_router)
 # Phase 4: business plan endpoints (/api/plan...) in app/routes/plan.py
 app.include_router(plan_router)
+# Phase 6: launch checklist on the server (/api/checklist/...) in app/routes/checklist.py
+app.include_router(checklist_router)
+# Phase 6: Q&A advisor + next-step guide (/api/ask, /api/guide) in app/routes/advisor.py
+app.include_router(advisor_router)
 # Phase 5: the web app (GET /, /compare.html, /api/samples) + its CSS/JS files under /static
 app.include_router(frontend_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

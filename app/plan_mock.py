@@ -134,16 +134,73 @@ VALID_PLAN = {
 }
 
 
-def mock_draft(variant: str, chunks: list[RetrievedChunk]) -> PlanDraft:
-    """Build the mock draft for this variant ("valid" or "invalid")."""
-    data = copy.deepcopy(VALID_PLAN)
+# Hindi version of the same plan (same numbers), used in mock mode for Hindi in "direct" mode,
+# so a Hindi demo works offline. Other languages need a real LLM.
+VALID_PLAN_HI = {
+    "business_summary": "गाज़ियाबाद में घर की रसोई से जिम जाने वालों के लिए ताज़ा, ज़्यादा प्रोटीन वाला लंच बॉक्स। खाना पास के 3-4 जिम के आसपास पहुँचाया जाएगा। शुरुआत सिर्फ़ दोपहर के खाने से करें और हर महीने वाले पक्के ग्राहक बनाकर आगे बढ़ें।",
+    "unit_name": "थाली",
+    "startup_costs": [
+        {"name": "गैस चूल्हा और प्रेशर कुकर", "amount_inr": 3500, "kind": "one_time"},
+        {"name": "बर्तन और रसोई का तराज़ू", "amount_inr": 2500, "kind": "one_time"},
+        {"name": "डिलीवरी बैग और 30 स्टील के डिब्बे", "amount_inr": 2000, "kind": "one_time"},
+        {"name": "डिस्पोज़ेबल डिब्बों का पहला स्टॉक", "amount_inr": 1500, "kind": "one_time"},
+        {"name": "जिम के लिए छपे मेन्यू कार्ड", "amount_inr": 500, "kind": "one_time"},
+    ],
+    "fixed_monthly_costs": [
+        {"name": "रसोई गैस", "amount_inr": 1200, "kind": "monthly"},
+        {"name": "डिलीवरी का पेट्रोल", "amount_inr": 1300, "kind": "monthly"},
+        {"name": "फ़ोन और इंटरनेट", "amount_inr": 500, "kind": "monthly"},
+    ],
+    "unit_cost_inr": 100,
+    "selling_price_inr": 170,
+    "market_price_low_inr": 150,
+    "market_price_high_inr": 200,
+    "units_per_day_low": 5,
+    "units_per_day_expected": 10,
+    "units_per_day_high": 15,
+    "marketing_ideas": [
+        "पहले हफ़्ते में 2 जिम ट्रेनरों को मुफ़्त में खाना चखाएँ",
+        "जिम के रिसेप्शन पर अपने व्हाट्सऐप नंबर के साथ मेन्यू कार्ड रखें",
+        "एक व्हाट्सऐप ग्रुप बनाएँ जिसमें रोज़ का मेन्यू और प्रोटीन ग्राम में बताएँ",
+        "महीने का प्लान लेने वाले ग्राहकों को एक थाली मुफ़्त दें",
+    ],
+    "launch_steps": [
+        {"title": "मेन्यू तय करें", "detail": "ज़्यादा प्रोटीन वाली 6 चीज़ें चुनें और हर एक का प्रोटीन ग्राम में लिखें।", "estimated_days": 3, "estimated_cost_inr": None},
+        {"title": "FSSAI रजिस्ट्रेशन कराएँ", "detail": "खाना बेचने से पहले FoSCoS वेबसाइट पर बेसिक FSSAI रजिस्ट्रेशन के लिए आवेदन करें।", "estimated_days": 7, "estimated_cost_inr": None},
+        {"title": "सामान खरीदें", "detail": "सूची के हिसाब से चूल्हा, बर्तन, डिलीवरी बैग और डिब्बे खरीदें।", "estimated_days": 2, "estimated_cost_inr": 9500},
+        {"title": "जिम से बात करें", "detail": "पास के 3-4 जिम जाएँ और रिसेप्शन पर मेन्यू कार्ड रखने की बात करें।", "estimated_days": 3, "estimated_cost_inr": 500},
+        {"title": "एक हफ़्ता आज़माएँ", "detail": "एक हफ़्ते तक 5 दोस्तों या ट्रेनरों के लिए खाना बनाएँ और स्वाद व समय सुधारें।", "estimated_days": 7, "estimated_cost_inr": None},
+        {"title": "ऑर्डर लेना शुरू करें", "detail": "सुबह 10 बजे तक व्हाट्सऐप पर ऑर्डर लें और दोपहर 1 बजे तक खाना पहुँचाएँ।", "estimated_days": 1, "estimated_cost_inr": None},
+    ],
+    "assumptions": [
+        "एक थाली की सामग्री (चिकन या पनीर, चावल, सब्ज़ी, डिब्बा) लगभग ₹100 की है",
+        "पास के जिम रिसेप्शन पर मेन्यू कार्ड रखने देंगे",
+        "शुरुआत में मालिक खुद खाना बनाएँगे और पहुँचाएँगे",
+    ],
+    "risks": [
+        "शुरू के महीनों में ऑर्डर कम आ सकते हैं, जब तक लोग स्वाद पर भरोसा न करें",
+        "चिकन और पनीर के दाम बढ़ सकते हैं",
+        "देर से डिलीवरी होने पर ग्राहक छूट सकते हैं",
+    ],
+}
+SCHEME_WHY = {
+    "en": "Found in the official documents for this business ({category}).",
+    "hi": "इस बिज़नेस के लिए सरकारी दस्तावेज़ों में मिली ({category})।",
+}
+
+
+def mock_draft(variant: str, chunks: list[RetrievedChunk], language: str = "en") -> PlanDraft:
+    """Build the mock draft for this variant ("valid" or "invalid"). language="hi" gives the
+    Hindi version; any other language gets the English plan (mock mode cannot translate)."""
+    data = copy.deepcopy(VALID_PLAN_HI if language == "hi" else VALID_PLAN)
+    why = SCHEME_WHY.get(language, SCHEME_WHY["en"])
     # Like a grounded LLM: suggest up to 2 schemes that really appear in the retrieved chunks.
     seen = []
     for chunk in chunks:
         if chunk.scheme not in [s["scheme"] for s in seen]:
             seen.append({
                 "scheme": chunk.scheme,
-                "why_it_fits": f"Found in the official documents for this business ({chunk.category}).",
+                "why_it_fits": why.format(category=chunk.category),
                 "source_url": chunk.source_url,
             })
         if len(seen) == 2:
@@ -152,6 +209,8 @@ def mock_draft(variant: str, chunks: list[RetrievedChunk]) -> PlanDraft:
 
     if variant == "invalid":
         data["startup_costs"].append({"name": "Second-hand food cart", "amount_inr": 25000, "kind": "one_time"})
-        data["business_summary"] += " This business gives guaranteed profit from day one."
+        data["business_summary"] += (
+            " इसमें पहले दिन से पक्का मुनाफा है।" if language == "hi" else " This business gives guaranteed profit from day one."
+        )
         data["schemes"].append(dict(FAKE_SCHEME))
     return PlanDraft.model_validate(data)

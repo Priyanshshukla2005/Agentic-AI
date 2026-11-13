@@ -276,6 +276,34 @@ pre.raw { white-space: pre-wrap; word-wrap: break-word; font-family: var(--font)
   border-radius: 12px; resize: vertical;
 }
 
+/* ---------- Phase 6: next step, server checklist, questions ---------- */
+.guide-card { border: 2px solid var(--green); background: var(--green-soft); }
+.guide-progress { font-weight: 700; color: var(--green-dark); }
+.guide-step { font-size: 1.05rem; }
+.progress-row { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+.progress-row p { margin: 0; }
+.ring {
+  --pct: 0;
+  width: 64px; height: 64px; flex: none; border-radius: 50%;
+  background: conic-gradient(var(--green) calc(var(--pct) * 1%), var(--line) 0);
+  display: grid; place-items: center;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.ring span {
+  width: 48px; height: 48px; border-radius: 50%; background: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.85rem;
+}
+.check-row { display: flex; align-items: flex-start; gap: 6px; }
+.check-row label { flex: 1; }
+.step-title .badge { margin-left: 8px; vertical-align: 1px; }
+.ask-log { min-height: 120px; max-height: 50vh; }
+.bubble-note { display: block; margin-top: 6px; font-size: 0.8rem; color: var(--ink-soft); }
+.source-link {
+  display: inline-flex; align-items: center; min-height: 40px; margin-top: 4px; margin-right: 10px;
+  font-size: 0.85rem; font-weight: 600; color: var(--green-dark);
+}
+.small-note { font-size: 0.85rem; margin: 0; }
+
 /* ---------- Compare page ---------- */
 .compare-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .version-picks { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
